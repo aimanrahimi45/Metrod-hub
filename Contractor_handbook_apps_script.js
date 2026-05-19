@@ -62,13 +62,52 @@ function doPost(e) {
   }
 }
 
-/**
- * Handle GET requests for testing
- */
+// ========================================================
+// SECURE WEB APP GET LISTENER (DASHBOARD API)
+// ========================================================
+const DASHBOARD_PIN = PropertiesService.getScriptProperties().getProperty("DASHBOARD_PIN") || "9911";
+
 function doGet(e) {
-  return ContentService
-    .createTextOutput('Contractor Handbook Form Handler is running. Use POST to submit data.')
-    .setMimeType(ContentService.MimeType.TEXT);
+  try {
+    const pin = e.parameter.pin;
+    
+    // Check PIN authorization
+    if (pin !== DASHBOARD_PIN) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "ERROR", 
+        message: "Unauthorized: Invalid PIN" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const spreadsheet = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = spreadsheet.getSheetByName(SHEET_NAME) || spreadsheet.getActiveSheet();
+    const rows = sheet.getDataRange().getValues();
+    const headers = rows[0];
+    const data = [];
+    
+    for (let i = 1; i < rows.length; i++) {
+      const obj = {};
+      for (let j = 0; j < headers.length; j++) {
+        let val = rows[i][j];
+        if (val instanceof Date) {
+          val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd HH:mm:ss");
+        }
+        obj[headers[j]] = val;
+      }
+      data.push(obj);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "SUCCESS",
+      data: data
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "ERROR",
+      message: err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 /**

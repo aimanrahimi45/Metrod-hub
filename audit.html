@@ -410,23 +410,26 @@
         const DATABASES = [
             {
                 name: "HIRARC Yearly Approvals",
-                // Replace this URL with your actual "Signed Approvals" published CSV link
-                url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtlS2LRuvo6bKdLTosA_IOOcXYijsWdHlhI5xv2l-smPXOSVYocNt9XTkGQXI1j22mGdWoo3fDyWZL/pub?gid=1320970766&single=true&output=csv"
+                // Secure serverless API: Paste your deployed HIRARC Apps Script Web App URL here
+                scriptUrl: "YOUR_HIRARC_APPS_SCRIPT_URL",
+                isSecure: true
             },
             {
                 name: "Contractor Inductions",
-                // Replace this URL with your future induction published CSV link
-                url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4l1uoUn2-ndF-SAVStxR6clAOmOQmNTExZlFu0mHGkZwdFKmR6lLUc0ULBgusbAjGfWr6HQx8veWD/pub?gid=1606438832&single=true&output=csv"
+                // Secure serverless API: Paste your deployed Contractor Induction Apps Script Web App URL here
+                scriptUrl: "YOUR_CONTRACTOR_INDUCTION_APPS_SCRIPT_URL",
+                isSecure: true
             },
             {
                 name: "Contractor Handbook",
-                // The published CSV link for the Contractor Handbook Acknowledgments
-                url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSwmt3zSr9oIvlKrhzYwbrq6eyyYnn4iF4SSXGDlPwWDPyT0indDGhkXgWiyau16hyobLbI_h_6oLW3/pub?gid=1505658506&single=true&output=csv"
+                // Secure serverless API: Paste your deployed Contractor Handbook Apps Script Web App URL here
+                scriptUrl: "YOUR_CONTRACTOR_HANDBOOK_APPS_SCRIPT_URL",
+                isSecure: true
             },
             {
                 name: "First Aid Inspections",
-                // Secure serverless API: Paste your Apps Script Web App URL here
-                scriptUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaPjjpy1yMWD9lz7IQipeMLtNqFz6UMzS39WP2vQ-AEE2fLZvvskJEUOB-cCXfPtT4FSuXG6AxPSoj/pub?output=csv", 
+                // Secure serverless API: Paste your deployed First Aid Apps Script Web App URL here
+                scriptUrl: "YOUR_FIRST_AID_APPS_SCRIPT_URL", 
                 isSecure: true
             }
         ];
@@ -465,7 +468,7 @@
                 // If it is a secure Apps Script database, handle securely via JSON API
                 if (db.isSecure) {
                     if (db.scriptUrl.includes("YOUR_") || db.scriptUrl.includes("docs.google.com")) {
-                        tbody.innerHTML = `<tr><td class="loading">Configuration needed: Please paste your deployed Web App URL into the 'scriptUrl' config inside audit.html code.</td></tr>`;
+                        tbody.innerHTML = `<tr><td class="loading">Configuration needed: Please paste your deployed Web App URL into the 'scriptUrl' config inside audit.html code for '${db.name}'.</td></tr>`;
                         return;
                     }
 
@@ -480,62 +483,93 @@
                         localStorage.setItem("metrod_dashboard_pin", pin);
                     }
 
-                    // 2. Fetch both logs and details in parallel securely
+                    // 2. Fetch secure JSON data
                     try {
-                        const [logsRes, detailsRes] = await Promise.all([
-                            fetch(`${db.scriptUrl}?action=getLogs&pin=${pin}`),
-                            fetch(`${db.scriptUrl}?action=getDetails&pin=${pin}`)
-                        ]);
+                        if (db.name === "First Aid Inspections") {
+                            // Relational database requires parallel fetching of logs and details
+                            const [logsRes, detailsRes] = await Promise.all([
+                                fetch(`${db.scriptUrl}?action=getLogs&pin=${pin}`),
+                                fetch(`${db.scriptUrl}?action=getDetails&pin=${pin}`)
+                            ]);
 
-                        const logsJson = await logsRes.json();
-                        const detailsJson = await detailsRes.json();
+                            const logsJson = await logsRes.json();
+                            const detailsJson = await detailsRes.json();
 
-                        if (logsJson.status === "ERROR") {
-                            localStorage.removeItem("metrod_dashboard_pin");
-                            tbody.innerHTML = `<tr><td class="loading" style="color:#ef4444; font-weight:600;">Access Denied: ${logsJson.message}</td></tr>`;
-                            return;
+                            if (logsJson.status === "ERROR") {
+                                localStorage.removeItem("metrod_dashboard_pin");
+                                tbody.innerHTML = `<tr><td class="loading" style="color:#ef4444; font-weight:600;">Access Denied: ${logsJson.message}</td></tr>`;
+                                return;
+                            }
+
+                            // Store details in memory cache
+                            window.cachedDetailsData = detailsJson.data.map(item => [
+                                item["Audit ID"],
+                                item["Item ID"],
+                                item["Item Name"],
+                                item["Required Standard"],
+                                item["Quantity Available"],
+                                item["Expiry Date"],
+                                item["Remarks"]
+                            ]);
+
+                            // Render table headers
+                            globalHeaders = [
+                                "Audit ID", "Timestamp", "Date of Inspection", "Company", "Department",
+                                "Section", "Box ID", "Location", "Cleanliness Condition", "Cleanliness Remarks",
+                                "Inspection Findings", "Inspected By Name", "Inspected By Position", "Signature URL"
+                            ];
+
+                            let headerHTML = '<tr>';
+                            globalHeaders.forEach(h => { headerHTML += `<th>${h}</th>`; });
+                            headerHTML += '</tr>';
+                            thead.innerHTML = headerHTML;
+
+                            // Parse logs into standard table row values
+                            currentData = logsJson.data.map(item => [
+                                item["Audit ID"],
+                                item["Timestamp"],
+                                item["Date of Inspection"],
+                                item["Company"],
+                                item["Department"],
+                                item["Section"],
+                                item["Box ID"],
+                                item["Location"],
+                                item["Cleanliness Condition"],
+                                item["Cleanliness Remarks"],
+                                item["Inspection Findings"],
+                                item["Inspected By Name"],
+                                item["Inspected By Position"],
+                                item["Signature URL"]
+                            ]);
+                        } else {
+                            // Non-relational secure databases (HIRARC, Contractor Inductions, Contractor Handbook)
+                            const logsRes = await fetch(`${db.scriptUrl}?pin=${pin}`);
+                            const logsJson = await logsRes.json();
+
+                            if (logsJson.status === "ERROR") {
+                                localStorage.removeItem("metrod_dashboard_pin");
+                                tbody.innerHTML = `<tr><td class="loading" style="color:#ef4444; font-weight:600;">Access Denied: ${logsJson.message}</td></tr>`;
+                                return;
+                            }
+
+                            if (logsJson.data.length === 0) {
+                                tbody.innerHTML = `<tr><td class="loading">Database is empty.</td></tr>`;
+                                return;
+                            }
+
+                            // Dynamically extract headers from JSON object keys
+                            globalHeaders = Object.keys(logsJson.data[0]);
+
+                            let headerHTML = '<tr>';
+                            globalHeaders.forEach(h => { headerHTML += `<th>${h}</th>`; });
+                            headerHTML += '</tr>';
+                            thead.innerHTML = headerHTML;
+
+                            // Convert objects to row arrays
+                            currentData = logsJson.data.map(item => {
+                                return globalHeaders.map(h => item[h] !== undefined ? String(item[h]) : "");
+                            });
                         }
-
-                        // Store details in memory cache
-                        window.cachedDetailsData = detailsJson.data.map(item => [
-                            item["Audit ID"],
-                            item["Item ID"],
-                            item["Item Name"],
-                            item["Required Standard"],
-                            item["Quantity Available"],
-                            item["Expiry Date"],
-                            item["Remarks"]
-                        ]);
-
-                        // Render table headers
-                        globalHeaders = [
-                            "Audit ID", "Timestamp", "Date of Inspection", "Company", "Department",
-                            "Section", "Box ID", "Location", "Cleanliness Condition", "Cleanliness Remarks",
-                            "Inspection Findings", "Inspected By Name", "Inspected By Position", "Signature URL"
-                        ];
-
-                        let headerHTML = '<tr>';
-                        globalHeaders.forEach(h => { headerHTML += `<th>${h}</th>`; });
-                        headerHTML += '</tr>';
-                        thead.innerHTML = headerHTML;
-
-                        // Parse logs into standard table row values
-                        currentData = logsJson.data.map(item => [
-                            item["Audit ID"],
-                            item["Timestamp"],
-                            item["Date of Inspection"],
-                            item["Company"],
-                            item["Department"],
-                            item["Section"],
-                            item["Box ID"],
-                            item["Location"],
-                            item["Cleanliness Condition"],
-                            item["Cleanliness Remarks"],
-                            item["Inspection Findings"],
-                            item["Inspected By Name"],
-                            item["Inspected By Position"],
-                            item["Signature URL"]
-                        ]);
 
                         filteredData = [...currentData];
                         paginationControls.style.display = 'flex';
@@ -550,8 +584,8 @@
                     }
                 }
 
-                // --- Legacy Public CSV Fetching (For HIRARC, Contractor, and Handbook) ---
-                if (db.url.includes("YOUR_")) {
+                // --- Fallback Legacy Public CSV Fetching (If isSecure is false or missing) ---
+                if (db.url && db.url.includes("YOUR_")) {
                     tbody.innerHTML = `<tr><td class="loading">Configuration needed: Please paste your CSV link into the code for '${db.name}'.</td></tr>`;
                     return;
                 }
