@@ -18,11 +18,16 @@ function doPost(e) {
     var timestamp = new Date();
     
     // --- GOOGLE DRIVE PHOTO SAVING LOGIC ---
-    // PASTE YOUR SUBFOLDER ID HERE!
-    var FOLDER_ID = "1nf9uaVeJjxR5yOU3-JHpz30fX9yI2NCw";
+    // Fetches the secure Drive Folder ID from Google Apps Script private Project Properties.
+    // Configure 'FOLDER_ID' under Project Settings (⚙️) inside Apps Script!
+    var FOLDER_ID = PropertiesService.getScriptProperties().getProperty("FOLDER_ID");
     var photoUrl = "";
     
     if (data.photo) {
+      if (!FOLDER_ID) {
+        throw new Error("Drive FOLDER_ID is not configured in your Apps Script Project Settings!");
+      }
+      
       // Decode the heavily compressed JPEG
       var base64Data = data.photo.split(",")[1];
       var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), "image/jpeg", "Induction_" + data.name + "_" + timestamp.getTime() + ".jpg");

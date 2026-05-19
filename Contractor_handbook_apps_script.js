@@ -15,8 +15,8 @@ function setupAuthorization() {
 
 // Configuration - Update these values
 const SHEET_NAME = 'Contractor Acknowledgments'; // Name of the sheet tab
-const SPREADSHEET_ID = '1CTIZUmf8oXsH7jU3xKr7to4Uv0GbMZng02RrhkRxgvc'; // Leave empty to use the script's bound spreadsheet, or add specific spreadsheet ID
-const FOLDER_ID = '1SjUEVGbZBAdIf-JsvW2Q7lR_YlaBKD5t'; // The ID of the folder where signatures will be stored
+const SPREADSHEET_ID = ''; // Left empty to dynamically use the script's bound spreadsheet automatically
+const FOLDER_ID = PropertiesService.getScriptProperties().getProperty("FOLDER_ID"); // Securely loaded from Project settings!
 
 /**
  * Helper to get current GMT+8 Date string
