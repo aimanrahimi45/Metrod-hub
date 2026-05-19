@@ -70,10 +70,11 @@ function doGet(e) {
       const sheet = ss.getSheets()[0];
       const rows = sheet.getDataRange().getValues();
       
-      // Map to 2D array of [Col A, Col B]
+      // Map to 2D array of [Col A, Col B, Col C]
       const data = rows.map(r => [
         String(r[0]).trim(), 
-        r[1] ? String(r[1]).trim() : ""
+        r[1] ? String(r[1]).trim() : "",
+        r[2] ? String(r[2]).trim() : ""
       ]);
       
       return ContentService.createTextOutput(JSON.stringify({
