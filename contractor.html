@@ -204,31 +204,33 @@
 </div>
 
 <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzYeKbpgUAyBBO6_jsFnbrf6qqtN2yTFZZnR_PN_19SduKxtJSpL5gxIMavQgzTcQM43w/exec";
+
     // --- WORKER LOOKUP ---
     async function lookupWorker() {
         const searchIC = document.getElementById('search_ic').value.trim();
         const resultDiv = document.getElementById('status_result');
-        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR4l1uoUn2-ndF-SAVStxR6clAOmOQmNTExZlFu0mHGkZwdFKmR6lLUc0ULBgusbAjGfWr6HQx8veWD/pub?gid=1606438832&single=true&output=csv";
 
         if (!searchIC) return alert("Enter IC first");
         resultDiv.className = '';
+        resultDiv.innerHTML = "⏳ Checking status...";
 
         try {
-            const response = await fetch(CSV_URL);
-            const data = await response.text();
-            const rows = data.split("\n").map(row => row.split(","));
-            const worker = rows.find(r => r[2] && r[2].includes(searchIC));
+            const response = await fetch(`${APPS_SCRIPT_URL}?action=lookupWorker&ic=${searchIC}`);
+            const resJson = await response.json();
 
-            if (worker) {
-                const inductionDate = new Date(worker[0]);
+            if (resJson.status === "SUCCESS" && resJson.found) {
+                // Parse date cleanly (could be a string format from Utilities.formatDate)
+                const rawDateStr = resJson.date.split(" ")[0]; // Get YYYY-MM-DD portion
+                const inductionDate = new Date(rawDateStr);
                 const sixMonthsAgo = new Date();
                 sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
                 if (inductionDate < sixMonthsAgo) {
-                    resultDiv.innerHTML = "❌ EXPIRED. Re-induction required!";
+                    resultDiv.innerHTML = `❌ EXPIRED. Re-induction required! (Inducted: ${rawDateStr})`;
                     resultDiv.classList.add('status-expired');
                 } else {
-                    resultDiv.innerHTML = "✅ VALID. Induction is still current.";
+                    resultDiv.innerHTML = `✅ VALID. Induction is current. (Inducted: ${rawDateStr})`;
                     resultDiv.classList.add('status-valid');
                 }
             } else {
@@ -236,7 +238,7 @@
                 resultDiv.classList.add('status-notfound');
             }
         } catch (err) {
-            resultDiv.innerHTML = "Error checking status.";
+            resultDiv.innerHTML = "Error checking status. Try again.";
             resultDiv.classList.add('status-expired');
         }
     }
@@ -333,8 +335,6 @@
         const sigData = signaturePad.toDataURL(); 
         const selectedDate = document.getElementById('induction_date').value;
         const inductedBy = document.getElementById('inducted_by').value;
-        
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzYeKbpgUAyBBO6_jsFnbrf6qqtN2yTFZZnR_PN_19SduKxtJSpL5gxIMavQgzTcQM43w/exec";
         
         // Payload now includes the photo string
         const payload = {

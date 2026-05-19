@@ -60,9 +60,29 @@ const DASHBOARD_PIN = PropertiesService.getScriptProperties().getProperty("DASHB
 
 function doGet(e) {
   try {
+    const action = e.parameter.action;
     const pin = e.parameter.pin;
     
-    // Check PIN authorization
+    // 1. DYNAMIC DROPDOWN MASTER LIST (No PIN required, only returns public department versions)
+    if (action === "getMasterList") {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      // Read the first tab (usually where the Master List is placed)
+      const sheet = ss.getSheets()[0];
+      const rows = sheet.getDataRange().getValues();
+      
+      // Map to 2D array of [Col A, Col B]
+      const data = rows.map(r => [
+        String(r[0]).trim(), 
+        r[1] ? String(r[1]).trim() : ""
+      ]);
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "SUCCESS",
+        data: data
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 2. DASHBOARD RETRIEVAL (Requires DASHBOARD_PIN)
     if (pin !== DASHBOARD_PIN) {
       return ContentService.createTextOutput(JSON.stringify({ 
         status: "ERROR", 

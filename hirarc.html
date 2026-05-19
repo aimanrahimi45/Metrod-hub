@@ -242,10 +242,7 @@
     </div>
 
     <script>
-        // --- ULTRA-SMART CSV FETCHING LOGIC ---
-
-        // PASTE YOUR "MASTER LINKS" CSV URL HERE:
-        const HIRARC_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtlS2LRuvo6bKdLTosA_IOOcXYijsWdHlhI5xv2l-smPXOSVYocNt9XTkGQXI1j22mGdWoo3fDyWZL/pub?gid=0&single=true&output=csv";
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4ZcK2HdwiEeO9ze18rdwbppoPt7SwDAoHwq3VRBNUkv9B_J0IIdUS4D-va4iR7H8/exec";
 
         let hirarcDatabase = [];
         let currentDocumentVersion = "";
@@ -253,18 +250,20 @@
         async function loadMasterList() {
             const select = document.getElementById('department');
             try {
-                const response = await fetch(HIRARC_CSV_URL);
-                const data = await response.text();
+                const response = await fetch(`${APPS_SCRIPT_URL}?action=getMasterList`);
+                const resJson = await response.json();
 
-                // Parse CSV (Skip the header row if it exists)
-                const rows = data.split("\n").map(row => row.split(","));
+                if (resJson.status !== "SUCCESS") {
+                    throw new Error(resJson.message || "Failed to load master list");
+                }
+
+                const rows = resJson.data;
 
                 // Save to global database variable
                 hirarcDatabase = rows.filter(r => r[0] && r[0].trim() !== "");
 
                 // Populate dropdown
                 select.innerHTML = '<option value="" disabled selected>Select Department...</option>';
-                // Assuming row 0 is header, start from i=1
                 for (let i = 1; i < hirarcDatabase.length; i++) {
                     const deptName = hirarcDatabase[i][0].trim();
                     const option = document.createElement('option');
@@ -273,14 +272,12 @@
                     select.appendChild(option);
                 }
             } catch (err) {
-                select.innerHTML = '<option value="" disabled selected>Error loading list. Check CSV Link.</option>';
+                select.innerHTML = '<option value="" disabled selected>Error loading list. Check backend.</option>';
             }
         }
 
-        // Load CSV immediately when page opens
-        if (HIRARC_CSV_URL !== "YOUR_CSV_LINK_HERE") {
-            loadMasterList();
-        }
+        // Load master list immediately when page opens
+        loadMasterList();
 
         // --- DYNAMIC DOCUMENT VIEWER ---
         document.getElementById('department').addEventListener('change', function () {
@@ -340,9 +337,6 @@
             submitBtn.disabled = true;
 
             const sigData = signaturePad.toDataURL();
-
-            // PASTE YOUR NEW GOOGLE APPS SCRIPT WEB APP URL HERE:
-            const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz4ZcK2HdwiEeO9ze18rdwbppoPt7SwDAoHwq3VRBNUkv9B_J0IIdUS4D-va4iR7H8/exec";
 
             const payload = {
                 department: document.getElementById('department').value,

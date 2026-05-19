@@ -69,9 +69,49 @@ const DASHBOARD_PIN = PropertiesService.getScriptProperties().getProperty("DASHB
 
 function doGet(e) {
   try {
+    const action = e.parameter.action;
     const pin = e.parameter.pin;
     
-    // Check PIN authorization
+    // 1. SECURE SERVER-SIDE LOOKUP (No PIN required, only returns matching single status)
+    if (action === "lookupWorker") {
+      const searchIC = e.parameter.ic;
+      if (!searchIC) {
+        return ContentService.createTextOutput(JSON.stringify({ 
+          status: "ERROR", 
+          message: "IC search query is required" 
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const sheet = ss.getActiveSheet();
+      const rows = sheet.getDataRange().getValues();
+      
+      // Col A: Timestamp, Col B: Name, Col C: IC Number
+      const worker = rows.find(r => r[2] && String(r[2]).includes(searchIC));
+      
+      if (worker) {
+        let inductionDateStr = "";
+        if (worker[4] instanceof Date) {
+          inductionDateStr = Utilities.formatDate(worker[4], "GMT+8", "yyyy-MM-dd");
+        } else {
+          inductionDateStr = String(worker[4]);
+        }
+        
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "SUCCESS",
+          found: true,
+          name: worker[1], // Worker Name (Col B)
+          date: inductionDateStr // Induction Date (Col E)
+        })).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "SUCCESS",
+          found: false
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    // 2. DASHBOARD RETRIEVAL (Requires DASHBOARD_PIN)
     if (pin !== DASHBOARD_PIN) {
       return ContentService.createTextOutput(JSON.stringify({ 
         status: "ERROR", 
