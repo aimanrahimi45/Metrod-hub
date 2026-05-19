@@ -425,10 +425,9 @@
             },
             {
                 name: "First Aid Inspections",
-                // Your live published URL for the 'First Aid Checklist Logs' tab
-                url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaPjjpy1yMWD9lz7IQipeMLtNqFz6UMzS39WP2vQ-AEE2fLZvvskJEUOB-cCXfPtT4FSuXG6AxPSoj/pub?output=csv",
-                // The live published URL for the 'First Aid Checklist Details' tab
-                detailsUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaPjjpy1yMWD9lz7IQipeMLtNqFz6UMzS39WP2vQ-AEE2fLZvvskJEUOB-cCXfPtT4FSuXG6AxPSoj/pub?gid=919370625&single=true&output=csv"
+                // Secure serverless API: Paste your Apps Script Web App URL here
+                scriptUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRaPjjpy1yMWD9lz7IQipeMLtNqFz6UMzS39WP2vQ-AEE2fLZvvskJEUOB-cCXfPtT4FSuXG6AxPSoj/pub?output=csv", 
+                isSecure: true
             }
         ];
 
@@ -463,7 +462,95 @@
             paginationControls.style.display = 'none'; // hide pagination while loading
 
             try {
-                // If the URL is just placeholder, show friendly message
+                // If it is a secure Apps Script database, handle securely via JSON API
+                if (db.isSecure) {
+                    if (db.scriptUrl.includes("YOUR_") || db.scriptUrl.includes("docs.google.com")) {
+                        tbody.innerHTML = `<tr><td class="loading">Configuration needed: Please paste your deployed Web App URL into the 'scriptUrl' config inside audit.html code.</td></tr>`;
+                        return;
+                    }
+
+                    // 1. Get PIN from cache or prompt
+                    let pin = localStorage.getItem("metrod_dashboard_pin");
+                    if (!pin) {
+                        pin = prompt("🔐 This safety database is private.\n\nPlease enter the Dashboard security PIN to access logs:");
+                        if (!pin) {
+                            tbody.innerHTML = '<tr><td class="loading" style="color:#ef4444; font-weight:600;">Access Denied: Dashboard security PIN is required.</td></tr>';
+                            return;
+                        }
+                        localStorage.setItem("metrod_dashboard_pin", pin);
+                    }
+
+                    // 2. Fetch both logs and details in parallel securely
+                    try {
+                        const [logsRes, detailsRes] = await Promise.all([
+                            fetch(`${db.scriptUrl}?action=getLogs&pin=${pin}`),
+                            fetch(`${db.scriptUrl}?action=getDetails&pin=${pin}`)
+                        ]);
+
+                        const logsJson = await logsRes.json();
+                        const detailsJson = await detailsRes.json();
+
+                        if (logsJson.status === "ERROR") {
+                            localStorage.removeItem("metrod_dashboard_pin");
+                            tbody.innerHTML = `<tr><td class="loading" style="color:#ef4444; font-weight:600;">Access Denied: ${logsJson.message}</td></tr>`;
+                            return;
+                        }
+
+                        // Store details in memory cache
+                        window.cachedDetailsData = detailsJson.data.map(item => [
+                            item["Audit ID"],
+                            item["Item ID"],
+                            item["Item Name"],
+                            item["Required Standard"],
+                            item["Quantity Available"],
+                            item["Expiry Date"],
+                            item["Remarks"]
+                        ]);
+
+                        // Render table headers
+                        globalHeaders = [
+                            "Audit ID", "Timestamp", "Date of Inspection", "Company", "Department",
+                            "Section", "Box ID", "Location", "Cleanliness Condition", "Cleanliness Remarks",
+                            "Inspection Findings", "Inspected By Name", "Inspected By Position", "Signature URL"
+                        ];
+
+                        let headerHTML = '<tr>';
+                        globalHeaders.forEach(h => { headerHTML += `<th>${h}</th>`; });
+                        headerHTML += '</tr>';
+                        thead.innerHTML = headerHTML;
+
+                        // Parse logs into standard table row values
+                        currentData = logsJson.data.map(item => [
+                            item["Audit ID"],
+                            item["Timestamp"],
+                            item["Date of Inspection"],
+                            item["Company"],
+                            item["Department"],
+                            item["Section"],
+                            item["Box ID"],
+                            item["Location"],
+                            item["Cleanliness Condition"],
+                            item["Cleanliness Remarks"],
+                            item["Inspection Findings"],
+                            item["Inspected By Name"],
+                            item["Inspected By Position"],
+                            item["Signature URL"]
+                        ]);
+
+                        filteredData = [...currentData];
+                        paginationControls.style.display = 'flex';
+                        currentPage = 1;
+                        renderTable(currentPage);
+                        return;
+
+                    } catch (secErr) {
+                        localStorage.removeItem("metrod_dashboard_pin");
+                        tbody.innerHTML = `<tr><td class="loading" style="color:#ef4444; font-weight:600;">Secure Connection Failed: Make sure your Web App URL is correctly deployed and your PIN is correct. Error: ${secErr.message}</td></tr>`;
+                        return;
+                    }
+                }
+
+                // --- Legacy Public CSV Fetching (For HIRARC, Contractor, and Handbook) ---
                 if (db.url.includes("YOUR_")) {
                     tbody.innerHTML = `<tr><td class="loading">Configuration needed: Please paste your CSV link into the code for '${db.name}'.</td></tr>`;
                     return;

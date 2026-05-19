@@ -15,6 +15,11 @@
  */
 
 // ========================================================
+// 0. GLOBAL SECURITY CONFIGURATION
+// ========================================================
+const DASHBOARD_PIN = "9911"; // Change this PIN to secure your dashboard view!
+
+// ========================================================
 // 1. SETUP RELATIONAL SHEET STRUCTURE
 // ========================================================
 function setupSheet() {
@@ -203,5 +208,84 @@ function doPost(e) {
     
   } catch (err) {
     return ContentService.createTextOutput("ERROR: " + err.message).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+// ========================================================
+// 3. SECURE WEB APP GET LISTENER (DASHBOARD API)
+// ========================================================
+function doGet(e) {
+  try {
+    const pin = e.parameter.pin;
+    
+    // Check PIN authorization
+    if (pin !== DASHBOARD_PIN) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "ERROR", 
+        message: "Unauthorized: Invalid PIN" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const action = e.parameter.action;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    if (action === "getLogs") {
+      const sheet = ss.getSheetByName("First Aid Checklist Logs");
+      const rows = sheet.getDataRange().getValues();
+      const headers = rows[0];
+      const data = [];
+      
+      for (let i = 1; i < rows.length; i++) {
+        const obj = {};
+        for (let j = 0; j < headers.length; j++) {
+          let val = rows[i][j];
+          if (val instanceof Date) {
+            val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
+          }
+          obj[headers[j]] = val;
+        }
+        data.push(obj);
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "SUCCESS",
+        data: data
+      })).setMimeType(ContentService.MimeType.JSON);
+      
+    } else if (action === "getDetails") {
+      const sheet = ss.getSheetByName("First Aid Checklist Details");
+      const rows = sheet.getDataRange().getValues();
+      const headers = rows[0];
+      const data = [];
+      
+      for (let i = 1; i < rows.length; i++) {
+        const obj = {};
+        for (let j = 0; j < headers.length; j++) {
+          let val = rows[i][j];
+          if (val instanceof Date) {
+            val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
+          }
+          obj[headers[j]] = val;
+        }
+        data.push(obj);
+      }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "SUCCESS",
+        data: data
+      })).setMimeType(ContentService.MimeType.JSON);
+      
+    } else {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "ERROR",
+        message: "Invalid Action"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "ERROR",
+      message: err.message
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 }
