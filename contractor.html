@@ -8,27 +8,10 @@
     <link rel="apple-touch-icon" href="safety-logo-v2.png">
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="shared.js" defer></script>
     <style>
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --success: #10b981;
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            padding: 20px;
-            background: var(--bg);
-            color: var(--text-main);
-            line-height: 1.5;
-            margin: 0;
-        }
 
         .container {
             max-width: 550px;
@@ -45,43 +28,7 @@
             border: 1px solid var(--border);
         }
 
-        h2 {
-            color: var(--text-main);
-            margin-top: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-            border-bottom: 2px solid var(--bg);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-top: 16px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: var(--text-main);
-        }
-
-        input[type="text"], input[type="date"], select {
-            width: 100%;
-            padding: 12px 16px;
-            margin-top: 6px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 0.95rem;
-            font-family: inherit;
-            transition: all 0.2s;
-            background: var(--bg);
-        }
-
-        input[type="text"]:focus, input[type="date"]:focus, select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-            background: var(--surface);
-        }
+        /* Reusing global h2, labels, inputs, selects from shared.css */
 
         .search-bar {
             display: flex;
@@ -174,18 +121,7 @@
         .secondary-btn { background: var(--surface); color: var(--primary); border: 1px solid var(--primary); }
         .secondary-btn:hover { background: rgba(37, 99, 235, 0.05); }
 
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 15px;
-            transition: color 0.2s;
-        }
-        .back-link:hover { color: var(--primary); }
-        .back-link svg { width: 16px; height: 16px; margin-right: 6px; }
+        /* Reusing global back-link from shared.css */
 
     </style>
 </head>

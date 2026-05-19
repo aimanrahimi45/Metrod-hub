@@ -9,32 +9,12 @@
     <link rel="apple-touch-icon" href="safety-logo-v2.png">
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="shared.css">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="shared.js" defer></script>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-hover: #1e40af;
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-            --success: #10b981;
             --danger: #ef4444;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text-main);
-            padding: 20px;
-            min-height: 100vh;
         }
 
         .container {
@@ -105,30 +85,7 @@
             gap: 6px;
         }
 
-        label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #475569;
-        }
-
-        input,
-        select,
-        textarea {
-            padding: 10px 14px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s;
-            width: 100%;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            border-color: var(--primary);
-        }
+        /* Reusing global styles for labels, inputs, selects, and textareas from shared.css */
 
         /* Autofill bar */
         .autofill-bar {
