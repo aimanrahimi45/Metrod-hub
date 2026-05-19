@@ -14,10 +14,9 @@
  * 6. Copy the new Web App URL (if it changes) and paste it into first_aid.html!
  */
 
-// ========================================================
-// 0. GLOBAL SECURITY CONFIGURATION
-// ========================================================
-const DASHBOARD_PIN = "9911"; // Change this PIN to secure your dashboard view!
+// Fetches the secure PIN from Google Apps Script private Project Properties.
+// Default fallback is "9911" if not configured in your Settings panel.
+const DASHBOARD_PIN = PropertiesService.getScriptProperties().getProperty("DASHBOARD_PIN") || "9911";
 
 // ========================================================
 // 1. SETUP RELATIONAL SHEET STRUCTURE
