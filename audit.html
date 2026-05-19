@@ -12,7 +12,6 @@
     <link rel="stylesheet" href="shared.css">
     <script src="shared.js" defer></script>
     <style>
-
         .header {
             background: var(--surface);
             padding: 20px 40px;
@@ -137,7 +136,8 @@
         }
 
         .pagination button:hover:not(:disabled) {
-            background: #1e40af; /* primary dark */
+            background: #1e40af;
+            /* primary dark */
         }
 
         .pagination button:disabled {
@@ -186,26 +186,31 @@
             }
 
             /* Mobile Card Styling for Table */
-            table, thead, tbody, th, td, tr {
+            table,
+            thead,
+            tbody,
+            th,
+            td,
+            tr {
                 display: block;
             }
-            
+
             thead tr {
                 position: absolute;
                 top: -9999px;
                 left: -9999px;
             }
-            
+
             tr {
                 border: 1px solid var(--border);
                 border-radius: 8px;
                 margin-bottom: 15px;
                 background: var(--surface);
-                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
                 padding: 10px;
                 cursor: pointer;
             }
-            
+
             td {
                 border: none;
                 border-bottom: 1px solid #f1f5f9;
@@ -217,11 +222,11 @@
                 font-size: 0.9rem;
                 text-align: right;
             }
-            
+
             td:last-child {
                 border-bottom: none;
             }
-            
+
             td::before {
                 content: attr(data-label);
                 font-weight: 600;
@@ -231,7 +236,7 @@
                 white-space: normal;
                 word-break: break-word;
             }
-            
+
             .sig-img {
                 max-height: 40px;
             }
@@ -240,13 +245,13 @@
             .modal {
                 padding: 10px;
             }
-            
+
             .modal-content {
                 padding: 20px 15px;
                 max-height: 95vh;
                 width: 100%;
             }
-            
+
             .close-modal {
                 top: 15px;
                 right: 15px;
@@ -277,7 +282,7 @@
             overflow-y: auto;
             padding: 30px;
             position: relative;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         }
 
         .close-modal {
@@ -382,7 +387,7 @@
                 </tbody>
             </table>
         </div>
-        
+
         <!-- Pagination Controls -->
         <div class="pagination" id="pagination-controls" style="display: none;">
             <button id="prev-btn" onclick="changePage(-1)" disabled>&laquo; Previous</button>
@@ -396,7 +401,8 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
             <h2 id="modal-title">Inspection Details</h2>
-            <div id="modal-metadata" style="margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
+            <div id="modal-metadata"
+                style="margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
             <div class="modal-accordion" id="modal-accordion">
                 <!-- Collapsible detail sections or generic list go here -->
             </div>
@@ -411,25 +417,25 @@
             {
                 name: "HIRARC Yearly Approvals",
                 // Secure serverless API: Paste your deployed HIRARC Apps Script Web App URL here
-                scriptUrl: "YOUR_HIRARC_APPS_SCRIPT_URL",
+                scriptUrl: "https://script.google.com/macros/s/AKfycbz4ZcK2HdwiEeO9ze18rdwbppoPt7SwDAoHwq3VRBNUkv9B_J0IIdUS4D-va4iR7H8/exec",
                 isSecure: true
             },
             {
                 name: "Contractor Inductions",
                 // Secure serverless API: Paste your deployed Contractor Induction Apps Script Web App URL here
-                scriptUrl: "YOUR_CONTRACTOR_INDUCTION_APPS_SCRIPT_URL",
+                scriptUrl: "https://script.google.com/macros/s/AKfycbzYeKbpgUAyBBO6_jsFnbrf6qqtN2yTFZZnR_PN_19SduKxtJSpL5gxIMavQgzTcQM43w/exec",
                 isSecure: true
             },
             {
                 name: "Contractor Handbook",
                 // Secure serverless API: Paste your deployed Contractor Handbook Apps Script Web App URL here
-                scriptUrl: "YOUR_CONTRACTOR_HANDBOOK_APPS_SCRIPT_URL",
+                scriptUrl: "https://script.google.com/macros/s/AKfycbwswo184YEPoDU9P8SXsHPu23W4EDuq69d0PoSnToTYGXSSSl44k6_Qf4nlwXrhR01B/exec",
                 isSecure: true
             },
             {
                 name: "First Aid Inspections",
                 // Secure serverless API: Paste your deployed First Aid Apps Script Web App URL here
-                scriptUrl: "YOUR_FIRST_AID_APPS_SCRIPT_URL", 
+                scriptUrl: "https://script.google.com/macros/s/AKfycbzLbTTov3rghz5Z6mqKxm5DOeFLe6KWcyBiHwgc6ZTXKbsoAMfu4MMhn_A5TinpsTEEJQ/exec",
                 isSecure: true
             }
         ];
@@ -618,7 +624,7 @@
 
                 // Render Headers
                 globalHeaders = rows.shift(); // Remove first row (headers)
-                
+
                 // Filter out completely empty rows immediately
                 currentData = rows.filter(row => !(row.length === 1 && row[0] === ''));
                 filteredData = [...currentData];
@@ -655,7 +661,7 @@
             }
 
             const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-            
+
             // Safety bounds
             if (page < 1) page = 1;
             if (page > totalPages) page = totalPages;
@@ -678,7 +684,7 @@
                     // Check for Base64 or New Format
                     if (cell.startsWith('data:image') || cell.startsWith('https://lh3.googleusercontent.com/d/')) {
                         isImage = true;
-                    } 
+                    }
                     // Fix for Google's recent security block on drive.google.com/uc endpoint
                     else if (cell.includes('drive.google.com/uc')) {
                         const match = cell.match(/id=([a-zA-Z0-9_-]+)/);
@@ -720,7 +726,7 @@
         // --- Search Filter ---
         function filterTable() {
             const input = document.getElementById("search").value.toLowerCase();
-            
+
             if (!input) {
                 filteredData = [...currentData];
             } else {
@@ -729,7 +735,7 @@
                     return row.some(cell => cell.toLowerCase().includes(input));
                 });
             }
-            
+
             // Reset to page 1 when filtering
             renderTable(1);
         }
@@ -795,7 +801,7 @@
                 groups.forEach((g) => {
                     let itemsHTML = '<table style="width:100%; border-collapse:collapse; font-size:0.9rem;">';
                     itemsHTML += '<tr style="background:#f8fafc;"><th style="padding:8px; border-bottom:1px solid #e2e8f0; text-align:left;">Item</th><th style="padding:8px; border-bottom:1px solid #e2e8f0; text-align:center;">Qty</th><th style="padding:8px; border-bottom:1px solid #e2e8f0; text-align:center;">Expiry</th><th style="padding:8px; border-bottom:1px solid #e2e8f0; text-align:center;">Remarks</th></tr>';
-                    
+
                     g.ids.forEach(id => {
                         const itemName = getItemName(id);
                         const details = getItemDetails(id);
@@ -932,7 +938,7 @@
         }
 
         // Close modal when clicking outside
-        window.onclick = function(event) {
+        window.onclick = function (event) {
             const modal = document.getElementById('details-modal');
             if (event.target == modal) {
                 modal.style.display = 'none';
