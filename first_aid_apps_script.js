@@ -1,166 +1,220 @@
 /**
- * METROD AUTOMATION SYSTEM - FIRST AID BOX INSPECTION (RELATIONAL DATABASE SYSTEM)
+ * METROD AUTOMATION SYSTEM - FIRST AID BOX INSPECTION & INVENTORY SYSTEM
  * 
  * Instructions:
  * 1. Open your Google Sheet.
  * 2. Click "Extensions" > "Apps Script".
- * 3. Replace all existing code with this new script.
+ * 3. Replace all existing code with this upgraded script.
  * 4. Select the "setupSheet" function in the dropdown at the top and click "Run".
- *    This will automatically create your two clean relational tabs:
+ *    This will automatically configure/verify all four tabs:
  *    - "First Aid Checklist Logs"
  *    - "First Aid Checklist Details"
- *    and delete the old cluttered tab automatically!
- * 5. Click "Deploy" > "New Deployment" > Choose "Web App" > Set Execute as "Me" and Who has access to "Anyone" > Deploy.
- * 6. Copy the new Web App URL (if it changes) and paste it into first_aid.html!
+ *    - "First Aid Central Inventory"
+ *    - "First Aid Inventory Transactions"
+ * 5. Click "Deploy" > "New Deployment" > Web App > Execute as "Me", Access "Anyone" > Deploy.
  */
 
-// Fetches the secure PIN from Google Apps Script private Project Properties.
-// Default fallback is "9911" if not configured in your Settings panel.
+// Fetches the secure PIN from Project Properties (Default: "9911")
 const DASHBOARD_PIN = PropertiesService.getScriptProperties().getProperty("DASHBOARD_PIN") || "9911";
 
 // ========================================================
-// 1. SETUP RELATIONAL SHEET STRUCTURE
+// 1. SETUP RELATIONAL & INVENTORY TABS
 // ========================================================
 function setupSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 1. Setup logs sheet
+  // 1. Setup Logs Tab
   let logsSheet = ss.getSheetByName("First Aid Checklist Logs");
-  if (!logsSheet) {
-    logsSheet = ss.insertSheet("First Aid Checklist Logs");
-  }
+  if (!logsSheet) logsSheet = ss.insertSheet("First Aid Checklist Logs");
   
-  // 2. Setup details sheet
+  // 2. Setup Details Tab
   let detailsSheet = ss.getSheetByName("First Aid Checklist Details");
-  if (!detailsSheet) {
-    detailsSheet = ss.insertSheet("First Aid Checklist Details");
-  }
+  if (!detailsSheet) detailsSheet = ss.insertSheet("First Aid Checklist Details");
 
-  // Auto-delete the old cluttered 83-column sheet if it exists
-  const oldSheet = ss.getSheetByName("First Aid Checklist");
-  if (oldSheet) {
-    try {
-      ss.deleteSheet(oldSheet);
-    } catch(err) {
-      // Ignore if deletion is blocked or already deleted
-    }
-  }
-  
+  // 3. Setup Central Inventory Tab
+  let invSheet = ss.getSheetByName("First Aid Central Inventory");
+  if (!invSheet) invSheet = ss.insertSheet("First Aid Central Inventory");
+
+  // 4. Setup Transactions Tab
+  let transSheet = ss.getSheetByName("First Aid Inventory Transactions");
+  if (!transSheet) transSheet = ss.insertSheet("First Aid Inventory Transactions");
+
   // Format Logs Headers
   const logHeaders = [
-    "Audit ID", 
-    "Timestamp", 
-    "Date of Inspection", 
-    "Company", 
-    "Department", 
-    "Section", 
-    "Box ID", 
-    "Location",
-    "Cleanliness Condition",
-    "Cleanliness Remarks",
-    "Inspection Findings",
-    "Inspected By Name",
-    "Inspected By Position",
-    "Signature URL"
+    "Audit ID", "Timestamp", "Date of Inspection", "Company", 
+    "Department", "Section", "Box ID", "Location",
+    "Cleanliness Condition", "Cleanliness Remarks", "Inspection Findings",
+    "Inspected By Name", "Inspected By Position", "Signature URL"
   ];
-  
   logsSheet.clear();
   logsSheet.getRange(1, 1, 1, logHeaders.length).setValues([logHeaders]);
-  const logHeaderRange = logsSheet.getRange(1, 1, 1, logHeaders.length);
-  logHeaderRange.setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+  logsSheet.getRange(1, 1, 1, logHeaders.length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
   logsSheet.setFrozenRows(1);
-  logsSheet.autoResizeColumns(1, logHeaders.length);
 
   // Format Details Headers
   const detailHeaders = [
-    "Audit ID",
-    "Item ID",
-    "Item Name",
-    "Required Standard",
-    "Quantity Available",
-    "Expiry Date",
-    "Remarks"
+    "Audit ID", "Item ID", "Item Name", "Required Standard", 
+    "Quantity Available", "Expiry Date", "Remarks"
   ];
-
   detailsSheet.clear();
   detailsSheet.getRange(1, 1, 1, detailHeaders.length).setValues([detailHeaders]);
-  const detailHeaderRange = detailsSheet.getRange(1, 1, 1, detailHeaders.length);
-  detailHeaderRange.setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+  detailsSheet.getRange(1, 1, 1, detailHeaders.length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
   detailsSheet.setFrozenRows(1);
-  detailsSheet.autoResizeColumns(1, detailHeaders.length);
 
-  // Success alert dialog
-  const ui = SpreadsheetApp.getUi();
-  ui.alert("🎉 Success!", "Your Relational Two-Tab Database has been configured successfully!\n\n1. 'First Aid Checklist Logs' (14 columns)\n2. 'First Aid Checklist Details' (7 columns)\n\nThe old cluttered 83-column sheet has been deleted automatically. Ready to deploy your Web App!", ui.ButtonSet.OK);
+  // Format Central Inventory Headers & Load Default Items (Start at 0 stock)
+  const invHeaders = ["Item ID", "Item Name", "Unit", "Current Stock", "Min Alert Level", "Last Updated"];
+  invSheet.clear();
+  invSheet.getRange(1, 1, 1, invHeaders.length).setValues([invHeaders]);
+  invSheet.getRange(1, 1, 1, invHeaders.length).setFontWeight("bold").setBackground("#0f766e").setFontColor("#ffffff"); // Teal branding
+  invSheet.setFrozenRows(1);
+
+  const defaultInventory = [
+    [1, "Triangular Bandage 100cm", "pcs", 0, 10, new Date()],
+    [2, "Eye Dressing No 16", "pkt", 0, 5, new Date()],
+    [3, "Sterile Gamgee Pad 25cm", "pkt", 0, 5, new Date()],
+    [4, "Sterile Gauze Pad 7.5cm", "pkt", 0, 10, new Date()],
+    [5, "Sterile Gauze Pad 10cm", "pkt", 0, 10, new Date()],
+    [6, "Elastic Bandage", "pkt", 0, 5, new Date()],
+    [7, "W.O.W Bandage 2.5cm", "pcs", 0, 15, new Date()],
+    [8, "W.O.W Bandage 5.0cm", "pcs", 0, 15, new Date()],
+    [9, "W.O.W Bandage 7.5cm", "pcs", 0, 15, new Date()],
+    [10, "Instant Ice Pack", "pkt", 0, 10, new Date()],
+    [11, "Sterile Non-Adherent Pad", "pkt", 0, 10, new Date()],
+    [12, "Pair of Glove", "pkt", 0, 10, new Date()],
+    [13, "Scissors", "pcs", 0, 2, new Date()],
+    [14, "Adhesive Tape", "pcs", 0, 5, new Date()],
+    [15, "Bactigras", "pcs", 0, 5, new Date()],
+    [16, "Yellow Antiseptic Liquid", "pcs", 0, 2, new Date()],
+    [17, "Cotton Bud 100pcs", "pkt", 0, 5, new Date()],
+    [18, "CPR Face Shield", "pcs", 0, 5, new Date()],
+    [19, "Adhesive Plaster", "pcs", 0, 100, new Date()],
+    [20, "Safety Pin", "pcs", 0, 50, new Date()],
+    [21, "Thermometer", "pcs", 0, 2, new Date()],
+    [22, "Waste Bag", "pcs", 0, 10, new Date()],
+    [23, "First Aid Manual", "pcs", 0, 2, new Date()]
+  ];
+  invSheet.getRange(2, 1, defaultInventory.length, invHeaders.length).setValues(defaultInventory);
+
+  // Format Transactions Headers
+  const transHeaders = ["Timestamp", "ActionType", "Item ID", "Item Name", "QuantityChanged", "Box ID / Notes", "Logged By"];
+  transSheet.clear();
+  transSheet.getRange(1, 1, 1, transHeaders.length).setValues([transHeaders]);
+  transSheet.getRange(1, 1, 1, transHeaders.length).setFontWeight("bold").setBackground("#374151").setFontColor("#ffffff");
+  transSheet.setFrozenRows(1);
+
+  // Auto-resize
+  logsSheet.autoResizeColumns(1, logHeaders.length);
+  detailsSheet.autoResizeColumns(1, detailHeaders.length);
+  invSheet.autoResizeColumns(1, invHeaders.length);
+  transSheet.autoResizeColumns(1, transHeaders.length);
+
+  SpreadsheetApp.getUi().alert("🎉 Configuration Complete!", "All four relational and inventory database tabs have been set up in your spreadsheet.", SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+// Helper to parse required standard numbers (e.g. "5pcs" -> 5)
+function parseStandardQty(reqStr) {
+  const match = reqStr.match(/^(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+// Helper to safely fetch central inventory mapping
+function getCentralStockMap(ss) {
+  const invSheet = ss.getSheetByName("First Aid Central Inventory");
+  const rows = invSheet.getDataRange().getValues();
+  const map = {};
+  for (let i = 1; i < rows.length; i++) {
+    map[rows[i][0]] = {
+      rowIdx: i + 1,
+      name: rows[i][1],
+      stock: parseInt(rows[i][3], 10) || 0
+    };
+  }
+  return map;
 }
 
 // ========================================================
-// 2. WEB APP POST LISTENER
+// 2. WEB APP POST LISTENER (SUBMISSIONS & ADJUSTMENTS)
 // ========================================================
 function doPost(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const logsSheet = ss.getSheetByName("First Aid Checklist Logs");
-    const detailsSheet = ss.getSheetByName("First Aid Checklist Details");
     const data = JSON.parse(e.postData.contents);
     
-    // Save signature base64 image as file in Google Drive
+    // Check if this is an inventory adjustment request from the stock monitor dashboard
+    if (data.action === "updateInventory") {
+      if (data.pin !== DASHBOARD_PIN) {
+        return ContentService.createTextOutput("ERROR: Unauthorized").setMimeType(ContentService.MimeType.TEXT);
+      }
+      
+      const invSheet = ss.getSheetByName("First Aid Central Inventory");
+      const transSheet = ss.getSheetByName("First Aid Inventory Transactions");
+      const stockMap = getCentralStockMap(ss);
+      
+      data.adjustments.forEach(adj => {
+        const itemInfo = stockMap[adj.itemId];
+        if (itemInfo) {
+          const newQty = Math.max(0, itemInfo.stock + adj.qty);
+          invSheet.getRange(itemInfo.rowIdx, 4).setValue(newQty); // Update Current Stock
+          invSheet.getRange(itemInfo.rowIdx, 6).setValue(new Date()); // Update Last Updated
+          
+          // Log Transaction
+          transSheet.appendRow([
+            new Date(),
+            adj.qty > 0 ? "RESTOCK" : "DISPATCH",
+            adj.itemId,
+            itemInfo.name,
+            adj.qty,
+            adj.notes || "Dashboard Stock Update",
+            adj.user || "Safety Admin"
+          ]);
+        }
+      });
+      return ContentService.createTextOutput("SUCCESS").setMimeType(ContentService.MimeType.TEXT);
+    }
+    
+    // Default Submission: Handle New Inspection Form Submission
+    const logsSheet = ss.getSheetByName("First Aid Checklist Logs");
+    const detailsSheet = ss.getSheetByName("First Aid Checklist Details");
+    const invSheet = ss.getSheetByName("First Aid Central Inventory");
+    const transSheet = ss.getSheetByName("First Aid Inventory Transactions");
+    
+    // Handle Signature Capture
     let signatureUrl = "";
     if (data.signature) {
       const base64Data = data.signature.split(",")[1];
       const decodedBytes = Utilities.base64Decode(base64Data);
       const blob = Utilities.newBlob(decodedBytes, "image/png", `Sig_${data.boxId.replace(/\//g, '_')}_${data.inspectDate}.png`);
-      
       const folderId = "1NEfd1I5zYDRXkhvizjokhX_K4JxBF293";
       let folder;
       try {
         folder = DriveApp.getFolderById(folderId);
       } catch (err) {
-        // Fallback folder creation
         const folders = DriveApp.getFoldersByName("Metrod Signatures");
-        if (folders.hasNext()) {
-          folder = folders.next();
-        } else {
-          folder = DriveApp.createFolder("Metrod Signatures");
-        }
+        folder = folders.hasNext() ? folders.next() : DriveApp.createFolder("Metrod Signatures");
       }
-      
       const file = folder.createFile(blob);
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       signatureUrl = file.getUrl();
     }
     
-    // Generate Unique transaction Audit ID: FA-BOXCODE-YYYYMMDD-HHMMSS
+    // Generate Audit ID
     const boxCode = data.boxId.replace(/[^a-zA-Z0-9]/g, "");
     const dateCode = data.inspectDate.replace(/-/g, "");
     const timeCode = Utilities.formatDate(new Date(), "GMT+8", "HHmmss");
     const auditId = `FA-${boxCode}-${dateCode}-${timeCode}`;
 
-    // Cleanliness Condition (Item 24) mappings
     const cleanCond = data[`item_24_avail`] || "Good";
     const cleanRem = data[`item_24_remarks`] || "-";
 
-    // 1. Write metadata record to Logs sheet
-    const logRow = [
-      auditId,
-      new Date(), // Timestamp
-      data.inspectDate,
-      data.company,
-      data.department,
-      data.section,
-      data.boxId,
-      data.location,
-      cleanCond,
-      cleanRem,
-      data.findings || "-",
-      data.officerName || "-",
-      data.officerPos || "-",
-      signatureUrl
-    ];
-    logsSheet.appendRow(logRow);
+    // 1. Write Log
+    logsSheet.appendRow([
+      auditId, new Date(), data.inspectDate, data.company, data.department, data.section,
+      data.boxId, data.location, cleanCond, cleanRem, data.findings || "-",
+      data.officerName || "-", data.officerPos || "-", signatureUrl
+    ]);
     
-    // 2. Write individual items 1 to 23 vertically to Details sheet
-    const items = [
+    // Define items array
+    const itemsList = [
       { id: 1, name: "Triangular Bandage 100cm", req: "5pcs" },
       { id: 2, name: "Eye Dressing No 16", req: "3pkt" },
       { id: 3, name: "Sterile Gamgee Pad 25cm", req: "3pkt" },
@@ -186,21 +240,47 @@ function doPost(e) {
       { id: 23, name: "First Aid Manual", req: "1pcs" }
     ];
 
-    items.forEach(item => {
-      const avail = data[`item_${item.id}_avail`] || "-";
+    const stockMap = getCentralStockMap(ss);
+    const instantRestock = data.instantRestock === true;
+    
+    // 2. Process items
+    itemsList.forEach(item => {
+      const inputVal = parseInt(data[`item_${item.id}_avail`], 10) || 0;
+      const reqVal = parseStandardQty(item.req);
       const exp = data[`item_${item.id}_exp`] || "-";
       const rem = data[`item_${item.id}_remarks`] || "-";
 
-      const detailRow = [
-        auditId,
-        item.id,
-        item.name,
-        item.req,
-        avail,
-        exp,
-        rem
-      ];
-      detailsSheet.appendRow(detailRow);
+      let finalAvail = inputVal;
+
+      // If inspector refilled on the spot, deduct difference from central stock
+      if (instantRestock && inputVal < reqVal) {
+        const shortage = reqVal - inputVal;
+        const itemInfo = stockMap[item.id];
+        
+        if (itemInfo) {
+          // Deduct from central stock (allow it to drop, e.g. 0 to -3 represents shortages)
+          const newCentralStock = itemInfo.stock - shortage;
+          invSheet.getRange(itemInfo.rowIdx, 4).setValue(newCentralStock);
+          invSheet.getRange(itemInfo.rowIdx, 6).setValue(new Date());
+
+          // Log transaction
+          transSheet.appendRow([
+            new Date(),
+            "DISPATCH",
+            item.id,
+            item.name,
+            -shortage,
+            `Refill Box ${data.boxId} (Inspection)`,
+            data.officerName || "Safety Officer"
+          ]);
+        }
+        // Box is now fully restocked, so save the compliant standard count to the database
+        finalAvail = reqVal;
+      }
+
+      detailsSheet.appendRow([
+        auditId, item.id, item.name, item.req, finalAvail, exp, rem
+      ]);
     });
     
     return ContentService.createTextOutput("SUCCESS").setMimeType(ContentService.MimeType.TEXT);
@@ -211,18 +291,13 @@ function doPost(e) {
 }
 
 // ========================================================
-// 3. SECURE WEB APP GET LISTENER (DASHBOARD API)
+// 3. SECURE GET LISTENER (READ API)
 // ========================================================
 function doGet(e) {
   try {
     const pin = e.parameter.pin;
-    
-    // Check PIN authorization
     if (pin !== DASHBOARD_PIN) {
-      return ContentService.createTextOutput(JSON.stringify({ 
-        status: "ERROR", 
-        message: "Unauthorized: Invalid PIN" 
-      })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Unauthorized: Invalid PIN" })).setMimeType(ContentService.MimeType.JSON);
     }
     
     const action = e.parameter.action;
@@ -233,58 +308,112 @@ function doGet(e) {
       const rows = sheet.getDataRange().getValues();
       const headers = rows[0];
       const data = [];
-      
       for (let i = 1; i < rows.length; i++) {
         const obj = {};
         for (let j = 0; j < headers.length; j++) {
           let val = rows[i][j];
-          if (val instanceof Date) {
-            val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
-          }
+          if (val instanceof Date) val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
           obj[headers[j]] = val;
         }
         data.push(obj);
       }
-      
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "SUCCESS",
-        data: data
-      })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ status: "SUCCESS", data: data })).setMimeType(ContentService.MimeType.JSON);
       
     } else if (action === "getDetails") {
       const sheet = ss.getSheetByName("First Aid Checklist Details");
       const rows = sheet.getDataRange().getValues();
       const headers = rows[0];
       const data = [];
-      
       for (let i = 1; i < rows.length; i++) {
         const obj = {};
         for (let j = 0; j < headers.length; j++) {
           let val = rows[i][j];
-          if (val instanceof Date) {
-            val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
-          }
+          if (val instanceof Date) val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
           obj[headers[j]] = val;
         }
         data.push(obj);
       }
+      return ContentService.createTextOutput(JSON.stringify({ status: "SUCCESS", data: data })).setMimeType(ContentService.MimeType.JSON);
+      
+    } else if (action === "getInventory") {
+      const sheet = ss.getSheetByName("First Aid Central Inventory");
+      const rows = sheet.getDataRange().getValues();
+      const headers = rows[0];
+      const data = [];
+      for (let i = 1; i < rows.length; i++) {
+        const obj = {};
+        for (let j = 0; j < headers.length; j++) {
+          let val = rows[i][j];
+          if (val instanceof Date) val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd HH:mm:ss");
+          obj[headers[j]] = val;
+        }
+        data.push(obj);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: "SUCCESS", data: data })).setMimeType(ContentService.MimeType.JSON);
+      
+    } else if (action === "getShortages") {
+      const logsSheet = ss.getSheetByName("First Aid Checklist Logs");
+      const detailsSheet = ss.getSheetByName("First Aid Checklist Details");
+      
+      const logRows = logsSheet.getDataRange().getValues();
+      const detailRows = detailsSheet.getDataRange().getValues();
+      
+      // 1. Find the latest audit record for each of the boxes OSH/FAB/01 to 07
+      const boxLatestAudit = {}; // maps boxId -> auditId
+      const boxLatestDate = {}; // maps boxId -> Date object
+      
+      for (let i = 1; i < logRows.length; i++) {
+        const auditId = logRows[i][0];
+        const dateStr = logRows[i][2]; // "Date of Inspection"
+        const boxId = logRows[i][6];
+        const dateObj = new Date(dateStr);
+        
+        if (!boxLatestDate[boxId] || dateObj > boxLatestDate[boxId]) {
+          boxLatestDate[boxId] = dateObj;
+          boxLatestAudit[boxId] = auditId;
+        }
+      }
+      
+      // 2. Fetch all details for these latest audits and calculate shortages
+      const activeAuditIds = Object.values(boxLatestAudit);
+      const shortages = []; // array of items with box shortages
+      
+      for (let i = 1; i < detailRows.length; i++) {
+        const auditId = detailRows[i][0];
+        const itemId = parseInt(detailRows[i][1], 10);
+        const itemName = detailRows[i][2];
+        const reqStr = detailRows[i][3];
+        const availVal = parseInt(detailRows[i][4], 10) || 0;
+        
+        // Find which box this audit belongs to
+        const boxId = Object.keys(boxLatestAudit).find(key => boxLatestAudit[key] === auditId);
+        
+        if (boxId) {
+          const reqVal = parseStandardQty(reqStr);
+          if (availVal < reqVal) {
+            shortages.push({
+              boxId: boxId,
+              auditId: auditId,
+              itemId: itemId,
+              itemName: itemName,
+              required: reqVal,
+              available: availVal,
+              shortage: reqVal - availVal
+            });
+          }
+        }
+      }
       
       return ContentService.createTextOutput(JSON.stringify({
         status: "SUCCESS",
-        data: data
+        shortages: shortages
       })).setMimeType(ContentService.MimeType.JSON);
       
     } else {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "ERROR",
-        message: "Invalid Action"
-      })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Invalid Action" })).setMimeType(ContentService.MimeType.JSON);
     }
     
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "ERROR",
-      message: err.message
-    })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: err.message })).setMimeType(ContentService.MimeType.JSON);
   }
 }

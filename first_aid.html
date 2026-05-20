@@ -464,6 +464,14 @@
                                 <button type="button" class="clear-btn" onclick="clearSignature()">Clear</button>
                             </div>
                         </div>
+
+                        <!-- Instant Restock Checkbox -->
+                        <div style="margin-top: 20px; padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="instant-restock-check" style="width:20px; height:20px; margin:0; cursor:pointer; accent-color:var(--primary);">
+                            <label for="instant-restock-check" style="margin:0; font-size:0.85rem; font-weight:500; color:#1e40af; cursor:pointer; user-select:none;">
+                                <strong>Deduct Refill from Central Inventory?</strong> Check this if you immediately refilled missing items from the safety cabinet.
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -635,7 +643,8 @@
                 findings: document.getElementById('inspect-findings').value,
                 officerName: document.getElementById('officer-name').value,
                 officerPos: document.getElementById('officer-pos').value,
-                signature: signaturePad.toDataURL('image/png') // base64 string
+                signature: signaturePad.toDataURL('image/png'), // base64 string
+                instantRestock: document.getElementById('instant-restock-check').checked
             };
 
             // Gather items 1 to 24
