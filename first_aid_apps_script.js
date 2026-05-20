@@ -108,7 +108,11 @@ function setupSheet() {
   invSheet.autoResizeColumns(1, invHeaders.length);
   transSheet.autoResizeColumns(1, transHeaders.length);
 
-  SpreadsheetApp.getUi().alert("🎉 Configuration Complete!", "All four relational and inventory database tabs have been set up in your spreadsheet.", SpreadsheetApp.getUi().ButtonSet.OK);
+  try {
+    SpreadsheetApp.getUi().alert("🎉 Configuration Complete!", "All four relational and inventory database tabs have been set up in your spreadsheet.", SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (err) {
+    Logger.log("🎉 Configuration Complete! All four relational and inventory database tabs have been set up in your spreadsheet.");
+  }
 }
 
 // Helper to parse required standard numbers (e.g. "5pcs" -> 5)
