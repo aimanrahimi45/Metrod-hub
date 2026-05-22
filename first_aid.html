@@ -535,7 +535,7 @@
                     <div class="item-fields">
                         <div class="input-group">
                             <label style="font-size:0.75rem;">Quantity Available <span style="color:var(--danger)">*</span></label>
-                            <input type="text" id="item-${item.id}-avail" placeholder="e.g. ${item.req}" required>
+                            <input type="number" id="item-${item.id}-avail" placeholder="e.g. ${parseInt(item.req, 10)}" min="0" required>
                         </div>
                         <div class="input-group">
                             <label style="font-size:0.75rem;">Expiry Date</label>
@@ -606,7 +606,8 @@
         // --- Quick Standard Fill ---
         function quickFill() {
             CHECKLIST_ITEMS.forEach(item => {
-                document.getElementById(`item-${item.id}-avail`).value = item.req;
+                const numericQty = parseInt(item.req, 10) || 0;
+                document.getElementById(`item-${item.id}-avail`).value = numericQty;
                 if (item.exp) {
                     document.getElementById(`item-${item.id}-exp`).value = item.exp;
                 }

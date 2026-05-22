@@ -91,6 +91,7 @@ label {
 input[type="text"], 
 input[type="date"], 
 input[type="email"], 
+input[type="number"], 
 select, 
 textarea {
     width: 100%;
@@ -109,6 +110,7 @@ textarea {
 input[type="text"]:focus, 
 input[type="date"]:focus, 
 input[type="email"]:focus, 
+input[type="number"]:focus, 
 select:focus, 
 textarea:focus {
     outline: none;
