@@ -39,65 +39,64 @@ function setupSheet() {
   let transSheet = ss.getSheetByName("First Aid Inventory Transactions");
   if (!transSheet) transSheet = ss.insertSheet("First Aid Inventory Transactions");
 
-  // Format Logs Headers
+  // Format Logs Headers (DO NOT CLEAR DATA)
   const logHeaders = [
     "Audit ID", "Timestamp", "Date of Inspection", "Company", 
     "Department", "Section", "Box ID", "Location",
     "Cleanliness Condition", "Cleanliness Remarks", "Inspection Findings",
     "Inspected By Name", "Inspected By Position", "Signature URL"
   ];
-  logsSheet.clear();
   logsSheet.getRange(1, 1, 1, logHeaders.length).setValues([logHeaders]);
   logsSheet.getRange(1, 1, 1, logHeaders.length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
   logsSheet.setFrozenRows(1);
 
-  // Format Details Headers
+  // Format Details Headers (DO NOT CLEAR DATA)
   const detailHeaders = [
     "Audit ID", "Item ID", "Item Name", "Required Standard", 
     "Quantity Available", "Expiry Date", "Remarks", "Box ID", "Date of Inspection"
   ];
-  detailsSheet.clear();
   detailsSheet.getRange(1, 1, 1, detailHeaders.length).setValues([detailHeaders]);
   detailsSheet.getRange(1, 1, 1, detailHeaders.length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
   detailsSheet.setFrozenRows(1);
 
-  // Format Central Inventory Headers & Load Default Items (Start at 0 stock)
+  // Format Central Inventory Headers (DO NOT CLEAR DATA)
   const invHeaders = ["Item ID", "Item Name", "Unit", "Current Stock", "Min Alert Level", "Last Updated"];
-  invSheet.clear();
   invSheet.getRange(1, 1, 1, invHeaders.length).setValues([invHeaders]);
   invSheet.getRange(1, 1, 1, invHeaders.length).setFontWeight("bold").setBackground("#0f766e").setFontColor("#ffffff"); // Teal branding
   invSheet.setFrozenRows(1);
 
-  const defaultInventory = [
-    [1, "Triangular Bandage 100cm", "pcs", 0, 10, new Date()],
-    [2, "Eye Dressing No 16", "pkt", 0, 5, new Date()],
-    [3, "Sterile Gamgee Pad 25cm", "pkt", 0, 5, new Date()],
-    [4, "Sterile Gauze Pad 7.5cm", "pkt", 0, 10, new Date()],
-    [5, "Sterile Gauze Pad 10cm", "pkt", 0, 10, new Date()],
-    [6, "Elastic Bandage", "pkt", 0, 5, new Date()],
-    [7, "W.O.W Bandage 2.5cm", "pcs", 0, 15, new Date()],
-    [8, "W.O.W Bandage 5.0cm", "pcs", 0, 15, new Date()],
-    [9, "W.O.W Bandage 7.5cm", "pcs", 0, 15, new Date()],
-    [10, "Instant Ice Pack", "pkt", 0, 10, new Date()],
-    [11, "Sterile Non-Adherent Pad", "pkt", 0, 10, new Date()],
-    [12, "Pair of Glove", "pkt", 0, 10, new Date()],
-    [13, "Scissors", "pcs", 0, 2, new Date()],
-    [14, "Adhesive Tape", "pcs", 0, 5, new Date()],
-    [15, "Bactigras", "pcs", 0, 5, new Date()],
-    [16, "Yellow Antiseptic Liquid", "pcs", 0, 2, new Date()],
-    [17, "Cotton Bud 100pcs", "pkt", 0, 5, new Date()],
-    [18, "CPR Face Shield", "pcs", 0, 5, new Date()],
-    [19, "Adhesive Plaster", "pcs", 0, 100, new Date()],
-    [20, "Safety Pin", "pcs", 0, 50, new Date()],
-    [21, "Thermometer", "pcs", 0, 2, new Date()],
-    [22, "Waste Bag", "pcs", 0, 10, new Date()],
-    [23, "First Aid Manual", "pcs", 0, 2, new Date()]
-  ];
-  invSheet.getRange(2, 1, defaultInventory.length, invHeaders.length).setValues(defaultInventory);
+  // Only load default items if the inventory list is completely empty
+  if (invSheet.getLastRow() <= 1) {
+    const defaultInventory = [
+      [1, "Triangular Bandage 100cm", "pcs", 0, 10, new Date()],
+      [2, "Eye Dressing No 16", "pkt", 0, 5, new Date()],
+      [3, "Sterile Gamgee Pad 25cm", "pkt", 0, 5, new Date()],
+      [4, "Sterile Gauze Pad 7.5cm", "pkt", 0, 10, new Date()],
+      [5, "Sterile Gauze Pad 10cm", "pkt", 0, 10, new Date()],
+      [6, "Elastic Bandage", "pkt", 0, 5, new Date()],
+      [7, "W.O.W Bandage 2.5cm", "pcs", 0, 15, new Date()],
+      [8, "W.O.W Bandage 5.0cm", "pcs", 0, 15, new Date()],
+      [9, "W.O.W Bandage 7.5cm", "pcs", 0, 15, new Date()],
+      [10, "Instant Ice Pack", "pkt", 0, 10, new Date()],
+      [11, "Sterile Non-Adherent Pad", "pkt", 0, 10, new Date()],
+      [12, "Pair of Glove", "pkt", 0, 10, new Date()],
+      [13, "Scissors", "pcs", 0, 2, new Date()],
+      [14, "Adhesive Tape", "pcs", 0, 5, new Date()],
+      [15, "Bactigras", "pcs", 0, 5, new Date()],
+      [16, "Yellow Antiseptic Liquid", "pcs", 0, 2, new Date()],
+      [17, "Cotton Bud 100pcs", "pkt", 0, 5, new Date()],
+      [18, "CPR Face Shield", "pcs", 0, 5, new Date()],
+      [19, "Adhesive Plaster", "pcs", 0, 100, new Date()],
+      [20, "Safety Pin", "pcs", 0, 50, new Date()],
+      [21, "Thermometer", "pcs", 0, 2, new Date()],
+      [22, "Waste Bag", "pcs", 0, 10, new Date()],
+      [23, "First Aid Manual", "pcs", 0, 2, new Date()]
+    ];
+    invSheet.getRange(2, 1, defaultInventory.length, invHeaders.length).setValues(defaultInventory);
+  }
 
-  // Format Transactions Headers
+  // Format Transactions Headers (DO NOT CLEAR DATA)
   const transHeaders = ["Timestamp", "ActionType", "Item ID", "Item Name", "QuantityChanged", "Box ID / Notes", "Logged By"];
-  transSheet.clear();
   transSheet.getRange(1, 1, 1, transHeaders.length).setValues([transHeaders]);
   transSheet.getRange(1, 1, 1, transHeaders.length).setFontWeight("bold").setBackground("#374151").setFontColor("#ffffff");
   transSheet.setFrozenRows(1);
