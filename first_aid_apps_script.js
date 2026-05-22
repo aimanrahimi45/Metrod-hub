@@ -54,7 +54,7 @@ function setupSheet() {
   // Format Details Headers
   const detailHeaders = [
     "Audit ID", "Item ID", "Item Name", "Required Standard", 
-    "Quantity Available", "Expiry Date", "Remarks"
+    "Quantity Available", "Expiry Date", "Remarks", "Box ID", "Date of Inspection"
   ];
   detailsSheet.clear();
   detailsSheet.getRange(1, 1, 1, detailHeaders.length).setValues([detailHeaders]);
@@ -136,6 +136,22 @@ function getCentralStockMap(ss) {
   return map;
 }
 
+// Helper to generate sequential Audit ID (e.g., FA-00001, FA-00002)
+function getNextAuditId(logsSheet) {
+  const lastRow = logsSheet.getLastRow();
+  if (lastRow <= 1) {
+    return "FA-00001";
+  }
+  const lastAuditId = logsSheet.getRange(lastRow, 1).getValue().toString();
+  const match = lastAuditId.match(/^FA-(\d+)$/);
+  if (match) {
+    const nextNum = parseInt(match[1], 10) + 1;
+    return "FA-" + nextNum.toString().padStart(5, '0');
+  }
+  // Fallback: Generate ID based on row count if the last row isn't in standard sequential format
+  return "FA-" + (lastRow).toString().padStart(5, '0');
+}
+
 // ========================================================
 // 2. WEB APP POST LISTENER (SUBMISSIONS & ADJUSTMENTS)
 // ========================================================
@@ -201,11 +217,8 @@ function doPost(e) {
       signatureUrl = file.getUrl();
     }
     
-    // Generate Audit ID
-    const boxCode = data.boxId.replace(/[^a-zA-Z0-9]/g, "");
-    const dateCode = data.inspectDate.replace(/-/g, "");
-    const timeCode = Utilities.formatDate(new Date(), "GMT+8", "HHmmss");
-    const auditId = `FA-${boxCode}-${dateCode}-${timeCode}`;
+    // Generate Audit ID (Sequential format e.g. FA-00001)
+    const auditId = getNextAuditId(logsSheet);
 
     const cleanCond = data[`item_24_avail`] || "Good";
     const cleanRem = data[`item_24_remarks`] || "-";
@@ -283,7 +296,7 @@ function doPost(e) {
       }
 
       detailsSheet.appendRow([
-        auditId, item.id, item.name, item.req, finalAvail, exp, rem
+        auditId, item.id, item.name, item.req, finalAvail, exp, rem, data.boxId, data.inspectDate
       ]);
     });
     

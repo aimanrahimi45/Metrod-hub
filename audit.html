@@ -364,7 +364,32 @@
                 <option value="" disabled selected>Select Database to Audit...</option>
                 <!-- Databases will be populated here by JS -->
             </select>
+            <select id="month-filter" style="display: none;" onchange="filterTable()">
+                <option value="">All Months</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+            <select id="year-filter" style="display: none;" onchange="filterTable()">
+                <option value="">All Years</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+                <option value="2029">2029</option>
+                <option value="2030">2030</option>
+            </select>
             <input type="text" id="search" placeholder="Search records..." onkeyup="filterTable()">
+            <button id="export-btn" style="display: none; padding: 10px 15px; border-radius: 8px; font-weight: 500; font-family: inherit; font-size: 0.95rem; cursor: pointer; border: none; background: #0f766e; color: white; transition: background 0.2s;" onmouseover="this.style.background='#0d5e58'" onmouseout="this.style.background='#0f766e'" onclick="exportToCSV()">📥 Export Report</button>
         </div>
     </div>
 
@@ -465,6 +490,21 @@
             const tbody = document.getElementById('table-body');
             const thead = document.getElementById('table-head');
             const paginationControls = document.getElementById('pagination-controls');
+
+            // Toggle Export and Month/Year controls for First Aid Inspections
+            const monthFilter = document.getElementById("month-filter");
+            const yearFilter = document.getElementById("year-filter");
+            const exportBtn = document.getElementById("export-btn");
+
+            if (db.name === "First Aid Inspections") {
+                if (monthFilter) monthFilter.style.display = "inline-block";
+                if (yearFilter) yearFilter.style.display = "inline-block";
+                if (exportBtn) exportBtn.style.display = "inline-block";
+            } else {
+                if (monthFilter) { monthFilter.style.display = "none"; monthFilter.value = ""; }
+                if (yearFilter) { yearFilter.style.display = "none"; yearFilter.value = ""; }
+                if (exportBtn) exportBtn.style.display = "none";
+            }
 
             tbody.innerHTML = '<tr><td class="loading">Fetching secure data...</td></tr>';
             thead.innerHTML = '';
@@ -723,21 +763,116 @@
             renderTable(currentPage + direction);
         }
 
-        // --- Search Filter ---
+        // --- Search & Date Filter ---
         function filterTable() {
             const input = document.getElementById("search").value.toLowerCase();
+            const dbName = selector.options[selector.selectedIndex].text;
 
+            let data = currentData;
+
+            // Apply Month and Year filters if First Aid Inspections is selected
+            if (dbName === "First Aid Inspections") {
+                const monthVal = document.getElementById("month-filter").value;
+                const yearVal = document.getElementById("year-filter").value;
+
+                data = data.filter(row => {
+                    const dateStr = row[2] || ""; // Date of Inspection is index 2
+                    if (!dateStr || dateStr.length < 7) return false;
+
+                    const year = dateStr.substring(0, 4);
+                    const month = dateStr.substring(5, 7);
+
+                    const matchesMonth = !monthVal || month === monthVal;
+                    const matchesYear = !yearVal || year === yearVal;
+                    return matchesMonth && matchesYear;
+                });
+            }
+
+            // Apply text search input filter
             if (!input) {
-                filteredData = [...currentData];
+                filteredData = data;
             } else {
-                filteredData = currentData.filter(row => {
+                filteredData = data.filter(row => {
                     // Check if any cell in the row contains the search term
-                    return row.some(cell => cell.toLowerCase().includes(input));
+                    return row.some(cell => String(cell).toLowerCase().includes(input));
                 });
             }
 
             // Reset to page 1 when filtering
             renderTable(1);
+        }
+
+        // --- Export to CSV ---
+        function exportToCSV() {
+            const dbName = selector.options[selector.selectedIndex].text;
+            if (dbName !== "First Aid Inspections") return;
+
+            const monthVal = document.getElementById("month-filter").value;
+            const yearVal = document.getElementById("year-filter").value;
+
+            const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const monthStr = monthVal ? monthNames[parseInt(monthVal, 10)] : "All";
+            const yearStr = yearVal ? yearVal : "All";
+            const fileName = `First_Aid_Inspection_Report_${monthStr}_${yearStr}.csv`;
+
+            const csvHeaders = [
+                "Audit ID", "Date of Inspection", "Box ID", "Location", 
+                "Inspected By", "Item ID", "Item Name", 
+                "Required Standard", "Quantity Available", "Expiry Date", "Remarks"
+            ];
+
+            const csvRows = [csvHeaders.join(",")];
+
+            function escapeCSV(val) {
+                if (val === null || val === undefined) return "";
+                let str = String(val);
+                if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+                    str = str.replace(/"/g, '""');
+                    return `"${str}"`;
+                }
+                return str;
+            }
+
+            filteredData.forEach(logRow => {
+                const auditId = logRow[0];
+                const date = logRow[2];
+                const boxId = logRow[6];
+                const location = logRow[7];
+                const inspectedBy = logRow[11];
+
+                const details = (window.cachedDetailsData || []).filter(d => d[0] === auditId);
+
+                details.forEach(detRow => {
+                    const rowData = [
+                        auditId,
+                        date,
+                        boxId,
+                        location,
+                        inspectedBy,
+                        detRow[1], // Item ID
+                        detRow[2], // Item Name
+                        detRow[3], // Required Standard
+                        detRow[4], // Qty Available
+                        detRow[5], // Expiry Date
+                        detRow[6]  // Remarks
+                    ];
+                    csvRows.push(rowData.map(escapeCSV).join(","));
+                });
+            });
+
+            // Trigger download with UTF-8 BOM
+            const csvContent = "\uFEFF" + csvRows.join("\n");
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", fileName);
+                link.style.visibility = "hidden";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
         }
 
         // --- Details Modal Implementation ---
