@@ -135,7 +135,12 @@ function doGet(e) {
       for (let j = 0; j < headers.length; j++) {
         let val = rows[i][j];
         if (val instanceof Date) {
-          val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd HH:mm:ss");
+          // Only format with full time if it is the submission Timestamp
+          if (headers[j].toLowerCase().indexOf("timestamp") !== -1) {
+            val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd HH:mm:ss");
+          } else {
+            val = Utilities.formatDate(val, "GMT+8", "yyyy-MM-dd");
+          }
         }
         obj[headers[j]] = val;
       }
