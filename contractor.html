@@ -618,11 +618,6 @@
     document.getElementById('inductionForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        if (!finalPhotoData) {
-            alert("Please take a live photo for identity verification.");
-            return;
-        }
-
         if (signaturePad.isEmpty()) {
             alert("Worker must sign to acknowledge safety briefing.");
             return;
