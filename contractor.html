@@ -378,6 +378,19 @@
     </div>
 </div>
 
+    <!-- QR CODE POPUP MODAL -->
+    <div id="qr-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="card" style="max-width: 320px; text-align: center; padding: 24px; position: relative;">
+            <button type="button" id="btn-close-qr" style="position: absolute; top: 12px; right: 12px; border: none; background: transparent; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); width: auto; padding: 0;">&times;</button>
+            <h3 style="margin-top: 10px; margin-bottom: 5px;">Contractor Self-Register</h3>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px;">Scan this QR code on your mobile device to register.</p>
+            <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border); display: inline-block; margin-bottom: 15px;">
+                <img id="qr-code-img" src="" alt="QR Code" style="width: 200px; height: 200px; display: block;">
+            </div>
+            <p style="font-size: 0.75rem; font-weight: 500; color: var(--primary); overflow-wrap: break-word;" id="qr-url-text"></p>
+        </div>
+    </div>
+
 <script>
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzYeKbpgUAyBBO6_jsFnbrf6qqtN2yTFZZnR_PN_19SduKxtJSpL5gxIMavQgzTcQM43w/exec";
 
@@ -881,18 +894,7 @@
     }
 </script>
 
-    <!-- QR CODE POPUP MODAL -->
-    <div id="qr-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; justify-content: center; align-items: center;">
-        <div class="card" style="max-width: 320px; text-align: center; padding: 24px; position: relative;">
-            <button type="button" id="btn-close-qr" style="position: absolute; top: 12px; right: 12px; border: none; background: transparent; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); width: auto; padding: 0;">&times;</button>
-            <h3 style="margin-top: 10px; margin-bottom: 5px;">Contractor Self-Register</h3>
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 20px;">Scan this QR code on your mobile device to register.</p>
-            <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border); display: inline-block; margin-bottom: 15px;">
-                <img id="qr-code-img" src="" alt="QR Code" style="width: 200px; height: 200px; display: block;">
-            </div>
-            <p style="font-size: 0.75rem; font-weight: 500; color: var(--primary); overflow-wrap: break-word;" id="qr-url-text"></p>
-        </div>
-    </div>
+
 
 </body>
 </html>
