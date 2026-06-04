@@ -559,11 +559,16 @@
     }
 
     // --- SMART EMAIL PASTE PARSER ---
+    window.parsedWorkers = [];
+    window.selectedWorkerIndex = 0;
+
     function clearSmartPaste() {
         document.getElementById('smart-paste-subject').value = '';
         document.getElementById('smart-paste-area').value = '';
         document.getElementById('smart-paste-feedback').style.display = 'none';
         document.getElementById('smart-paste-feedback').innerHTML = '';
+        window.parsedWorkers = [];
+        window.selectedWorkerIndex = 0;
     }
 
     function parseSmartPaste() {
@@ -574,68 +579,130 @@
         if (!subjectText && !bodyText) {
             feedback.style.display = 'none';
             feedback.innerHTML = '';
+            window.parsedWorkers = [];
+            window.selectedWorkerIndex = 0;
             return;
         }
 
         // Combine subject and body text for comprehensive scanning
         const combinedText = `Subject: ${subjectText}\n\n${bodyText}`;
+        window.parsedWorkers = [];
 
-        // 1. Staff ID / Passport extraction:
-        // - idRegex: Look for 5-digit number (typically starting with 20 or similar)
-        // - passportRegex: Look for 1-2 letters followed by 6-9 digits (e.g. A12345678, E1234567)
-        const idRegex = /\b(2\d{4})\b|\b(\d{5})\b/;
-        const passportRegex = /\b([A-Za-z]{1,2}\d{6,9})\b/;
+        // Count Name labels or ID occurrences to check if it's a multi-worker list
+        const nameLabelCount = (combinedText.match(/Name\s*[:\-–]/gi) || []).length;
+        const idRegexGlobal = /\b(2\d{4})\b|\b(\d{5})\b|\b([A-Za-z]{1,2}\d{6,9})\b/g;
+        const allIds = combinedText.match(idRegexGlobal) || [];
+        const uniqueIds = [...new Set(allIds)];
 
-        const idMatch = combinedText.match(idRegex);
-        const passportMatch = combinedText.match(passportRegex);
-        let staffId = '';
-
-        if (idMatch) {
-            staffId = idMatch[0];
-            document.getElementById('req-staff-id').value = staffId;
-            checkSixMonthWarning();
-        } else if (passportMatch) {
-            staffId = passportMatch[0].toUpperCase();
-            document.getElementById('req-staff-id').value = staffId;
-            checkSixMonthWarning();
+        if (nameLabelCount > 1) {
+            // Split by "Name:" labels
+            const parts = combinedText.split(/(?=Name\s*[:\-–])/i);
+            for (let i = 1; i < parts.length; i++) {
+                const segment = parts[i];
+                const worker = extractSingleWorker(segment, combinedText);
+                if (worker.name || worker.id) {
+                    window.parsedWorkers.push(worker);
+                }
+            }
+        } else if (uniqueIds.length > 1) {
+            // Split by extracting context blocks around each unique ID/Passport
+            uniqueIds.forEach(id => {
+                const idIndex = combinedText.indexOf(id);
+                const startPos = Math.max(0, idIndex - 150);
+                const endPos = Math.min(combinedText.length, idIndex + 150);
+                const segment = combinedText.substring(startPos, endPos);
+                
+                const worker = extractSingleWorker(segment, combinedText, id);
+                if (worker.name || worker.id) {
+                    window.parsedWorkers.push(worker);
+                }
+            });
+        } else {
+            // Single worker email format
+            const worker = extractSingleWorker(combinedText, combinedText);
+            if (worker.name || worker.id) {
+                window.parsedWorkers.push(worker);
+            }
         }
 
-        // 2. Staff Name extraction
+        if (window.parsedWorkers.length === 0) {
+            feedback.style.display = 'block';
+            feedback.innerHTML = `<span style="color:var(--danger); font-weight:600;">⚠️ Could not extract worker details from email text. Please check layout or fill form manually.</span>`;
+            return;
+        }
+
+        // Default to loading the first worker
+        loadWorker(0);
+    }
+
+    function extractSingleWorker(segment, fullText, forcedId) {
+        // 1. Staff ID / Passport
+        let staffId = forcedId || '';
+        if (!staffId) {
+            const idRegex = /\b(2\d{4})\b|\b(\d{5})\b/;
+            const passportRegex = /\b([A-Za-z]{1,2}\d{6,9})\b/;
+            const idMatch = segment.match(idRegex);
+            const passportMatch = segment.match(passportRegex);
+            
+            if (idMatch) {
+                staffId = idMatch[0];
+            } else if (passportMatch) {
+                staffId = passportMatch[0].toUpperCase();
+            }
+        }
+
+        // 2. Name
         let name = '';
         const nameLabelRegex = /(?:NAME|Name|name)\s*[:\-–]\s*([^\n\r]+)/;
-        const nameLabelMatch = combinedText.match(nameLabelRegex);
+        const nameLabelMatch = segment.match(nameLabelRegex);
         if (nameLabelMatch) {
             name = nameLabelMatch[1].trim();
-        } else {
-            // Find text near the detected ID/Passport
-            if (staffId) {
-                const escapedId = staffId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const nameBeforeRegex = new RegExp(`(?:joinee|for|name|to)\\s+([^\\n\\r(),\\-–]+?)\\s*\\(?\\b` + escapedId + `\\b`);
-                const matchBefore = combinedText.match(nameBeforeRegex);
-                
-                const simpleBeforeRegex = new RegExp(`([^\\n\\r(),\\-–]{3,40})\\s*\\(?\\b` + escapedId + `\\b`);
-                const matchSimpleBefore = combinedText.match(simpleBeforeRegex);
+        } else if (staffId) {
+            const escapedId = staffId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const nameBeforeRegex = new RegExp(`(?:joinee|for|name|to)\\s+([^\\n\\r(),\\-–]+?)\\s*\\(?\\b` + escapedId + `\\b`, 'i');
+            const matchBefore = segment.match(nameBeforeRegex);
+            
+            const simpleBeforeRegex = new RegExp(`([^\\n\\r(),\\-–]{3,40})\\s*\\(?\\b` + escapedId + `\\b`);
+            const matchSimpleBefore = segment.match(simpleBeforeRegex);
 
-                const nameAfterRegex = new RegExp(`\\b` + escapedId + `\\b\\s*\\(?\\s*[-\\-–]\\s*([^\\n\\r().,\\-–]{3,40})`);
-                const matchAfter = combinedText.match(nameAfterRegex);
+            const nameAfterRegex = new RegExp(`\\b` + escapedId + `\\b\\s*\\(?\\s*[-\\-–]\\s*([^\\n\\r().,\\-–]{3,40})`, 'i');
+            const matchAfter = segment.match(nameAfterRegex);
 
-                if (matchBefore) {
-                    name = matchBefore[1].trim();
-                } else if (matchSimpleBefore) {
-                    name = matchSimpleBefore[1].trim();
-                } else if (matchAfter) {
-                    name = matchAfter[1].trim();
-                }
+            if (matchBefore) {
+                name = matchBefore[1].trim();
+            } else if (matchSimpleBefore) {
+                name = matchSimpleBefore[1].trim();
+            } else if (matchAfter) {
+                name = matchAfter[1].trim();
             }
         }
         
         if (name) {
             name = name.replace(/^(?:the\s+)?(?:new\s+)?(?:joinee|employee|staff|worker)\s+/i, '');
             name = name.replace(/\s*–\s*.*$/i, '').trim();
-            document.getElementById('req-staff-name').value = name;
+            name = name.replace(/(?:Passport|No|ID|Shoe|Size).*$/i, '').trim();
+            name = name.replace(/^[:\-–\s]+/, '').trim();
         }
 
-        // 3. Department extraction
+        // 3. Size
+        const sizeRegex = /(?:size|sz)\s*[:\-–\s]\s*([a-zA-Z0-9]+)/i;
+        const sizeMatch = segment.match(sizeRegex);
+        let size = '';
+        if (sizeMatch) {
+            size = sizeMatch[1].trim();
+        } else {
+            const shoeSizeMatch = segment.match(/\b(3[8-9]|4[0-6])\b/);
+            if (shoeSizeMatch) {
+                size = shoeSizeMatch[0];
+            } else {
+                const numberMatch = segment.match(/\b([5-9]|1[0-2])\b/);
+                if (numberMatch) {
+                    size = numberMatch[0];
+                }
+            }
+        }
+
+        // 4. Dept, PPE Type, Supervisor
         const deptMap = {
             'production': 'Production',
             'utility operator': 'Production',
@@ -655,18 +722,23 @@
         };
         
         let detectedDept = '';
-        const lowercaseText = combinedText.toLowerCase();
+        const lowercaseFullText = fullText.toLowerCase();
+        const lowercaseSegment = segment.toLowerCase();
         for (const [key, deptVal] of Object.entries(deptMap)) {
-            if (lowercaseText.includes(key)) {
+            if (lowercaseSegment.includes(key)) {
                 detectedDept = deptVal;
                 break;
             }
         }
-        if (detectedDept) {
-            document.getElementById('req-dept').value = detectedDept;
+        if (!detectedDept) {
+            for (const [key, deptVal] of Object.entries(deptMap)) {
+                if (lowercaseFullText.includes(key)) {
+                    detectedDept = deptVal;
+                    break;
+                }
+            }
         }
 
-        // 4. PPE Type extraction
         const ppeMap = {
             'shoe': 'Safety Shoe',
             'boot': 'Safety Shoe',
@@ -682,55 +754,84 @@
 
         const detectedPpes = [];
         for (const [key, ppeVal] of Object.entries(ppeMap)) {
-            if (lowercaseText.includes(key)) {
+            if (lowercaseFullText.includes(key)) {
                 if (!detectedPpes.includes(ppeVal)) {
                     detectedPpes.push(ppeVal);
                 }
             }
         }
 
-        if (detectedPpes.length > 0) {
-            document.getElementById('req-ppe-type').value = detectedPpes[0];
-            checkSixMonthWarning();
-        }
-
-        // 5. Size extraction
-        const sizeRegex = /(?:size|sz)\s*[:\-–\s]\s*([a-zA-Z0-9]+)/i;
-        const sizeMatch = combinedText.match(sizeRegex);
-        let size = '';
-        if (sizeMatch) {
-            size = sizeMatch[1].trim();
-            document.getElementById('req-size').value = size;
-        } else {
-            const shoeSizeMatch = combinedText.match(/\b(3[8-9]|4[0-6])\b/);
-            if (shoeSizeMatch) {
-                size = shoeSizeMatch[0];
-                document.getElementById('req-size').value = size;
-            }
-        }
-
-        // 6. Supervisor / Requestor name extraction (Sender name from header)
         const fromRegex = /(?:From|from)\s*:\s*([^<\n\r]+)/;
-        const fromMatch = combinedText.match(fromRegex);
+        const fromMatch = fullText.match(fromRegex);
+        let supervisor = 'SHO';
         if (fromMatch) {
-            let fromName = fromMatch[1].trim();
-            fromName = fromName.replace(/\s*<.*$/i, '').trim();
-            document.getElementById('req-supervisor').value = fromName;
+            supervisor = fromMatch[1].replace(/\s*<.*$/i, '').trim();
         }
 
-        // Build feedback HTML
+        return {
+            name: name,
+            id: staffId,
+            size: size,
+            department: detectedDept || 'Contractor',
+            ppeType: detectedPpes[0] || '',
+            detectedPpes: detectedPpes,
+            supervisor: supervisor
+        };
+    }
+
+    function loadWorker(index) {
+        if (index < 0 || index >= window.parsedWorkers.length) return;
+        window.selectedWorkerIndex = index;
+        const worker = window.parsedWorkers[index];
+
+        // Populate Form Inputs
+        document.getElementById('req-staff-id').value = worker.id;
+        document.getElementById('req-staff-name').value = worker.name;
+        document.getElementById('req-dept').value = worker.department;
+        document.getElementById('req-supervisor').value = worker.supervisor;
+        document.getElementById('req-size').value = worker.size;
+
+        if (worker.ppeType) {
+            document.getElementById('req-ppe-type').value = worker.ppeType;
+        }
+
+        // Trigger 6-month warning lookup
+        checkSixMonthWarning();
+
+        // Render Selector Buttons Feedback Panel
+        const feedback = document.getElementById('smart-paste-feedback');
         feedback.style.display = 'block';
-        let feedbackHTML = `<strong>🔍 Smart Parse Extraction Summary:</strong><br>`;
-        feedbackHTML += `👤 Name: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${name || '(Not detected)'}</code> | `;
-        feedbackHTML += `🆔 ID/Passport: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${staffId || '(Not detected)'}</code> | `;
-        feedbackHTML += `🏢 Dept: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${detectedDept || '(Not detected)'}</code><br>`;
-        feedbackHTML += `📦 PPE: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${detectedPpes[0] || '(Not detected)'}</code> | `;
-        feedbackHTML += `📏 Size: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${size || '(Not detected)'}</code>`;
 
-        if (detectedPpes.length > 1) {
-            feedbackHTML += `<br><span style="color:#d97706; font-weight:600; display:block; margin-top:5px;">⚠️ Multiple PPE items detected in email: ${detectedPpes.join(', ')}.<br>Currently pre-filled: ${detectedPpes[0]}. You can change the form drop-down to log the other item next.</span>`;
+        let html = '';
+        if (window.parsedWorkers.length > 1) {
+            html += `<strong style="color:var(--primary); display:block; margin-bottom:8px;">👥 Detected ${window.parsedWorkers.length} Workers in Email list:</strong>`;
+            html += `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">`;
+            window.parsedWorkers.forEach((w, idx) => {
+                const isActive = idx === index;
+                const styleBtn = isActive 
+                    ? `background:var(--primary); color:white; border:1px solid var(--primary); font-weight:600; cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.75rem;`
+                    : `background:white; color:var(--text-main); border:1px solid var(--border); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.75rem;`;
+                html += `<button type="button" style="${styleBtn}" onclick="loadWorker(${idx})">👤 ${idx + 1}. ${w.name || 'Unknown'} (${w.id || 'No ID'})</button>`;
+            });
+            html += `</div>`;
         }
-        feedback.innerHTML = feedbackHTML;
+
+        html += `<strong>🔍 Active Worker Details:</strong><br>`;
+        html += `👤 Name: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.name || '(Not detected)'}</code> | `;
+        html += `🆔 ID/Passport: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.id || '(Not detected)'}</code> | `;
+        html += `🏢 Dept: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.department}</code><br>`;
+        html += `📦 PPE: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.ppeType || '(Not detected)'}</code> | `;
+        html += `📏 Size: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.size || '(Not detected)'}</code>`;
+
+        if (worker.detectedPpes.length > 1) {
+            html += `<br><span style="color:#d97706; font-weight:600; display:block; margin-top:5px;">⚠️ Multiple PPE items detected: ${worker.detectedPpes.join(', ')}.<br>Currently pre-filled: ${worker.ppeType}. You can change the form dropdown to issue the other item.</span>`;
+        }
+
+        if (window.parsedWorkers.length > 1) {
+            html += `<br><span style="color:var(--primary); font-weight:600; display:block; margin-top:5px; font-size:0.8rem;">👉 Log this request, then click the next worker button above to log their entry next!</span>`;
+        }
+
+        feedback.innerHTML = html;
     }
 
     // --- TAB SWITCHING ---
