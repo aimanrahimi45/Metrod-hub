@@ -970,6 +970,29 @@
             dateStr = formatDateToYmd(new Date());
         }
 
+        // 6. Color / Specs Extraction (Regex)
+        let colorSpecs = '';
+        const colorRegex = /\b(yellow|black|white|blue|green|red|orange|double filter|oscar)\b/i;
+        const colorMatch = segment.match(colorRegex);
+        if (colorMatch) {
+            colorSpecs = colorMatch[0].charAt(0).toUpperCase() + colorMatch[0].slice(1);
+        }
+        
+        // Check for explicit labels like "Helmet: Yellow" or "Specs: ..."
+        const specsLabelRegex = /(?:specs|color|helmet|brand)\s*[:\-–]\s*([^\n\r]+)/i;
+        const specsLabelMatch = segment.match(specsLabelRegex);
+        if (specsLabelMatch) {
+            const candidate = specsLabelMatch[1].trim();
+            if (candidate && candidate.length < 30) {
+                const formattedCandidate = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+                colorSpecs = colorSpecs ? (colorSpecs.toLowerCase() === formattedCandidate.toLowerCase() ? colorSpecs : `${colorSpecs}, ${formattedCandidate}`) : formattedCandidate;
+            }
+        }
+        
+        if (!colorSpecs) {
+            colorSpecs = '-';
+        }
+
         return {
             name: name,
             id: staffId,
@@ -978,7 +1001,8 @@
             department: detectedDept || 'Contractor',
             ppeType: detectedPpes[0] || '',
             detectedPpes: detectedPpes,
-            supervisor: supervisor
+            supervisor: supervisor,
+            colorSpecs: colorSpecs
         };
     }
 
@@ -994,6 +1018,7 @@
         document.getElementById('req-dept').value = worker.department;
         document.getElementById('req-supervisor').value = worker.supervisor;
         document.getElementById('req-size').value = worker.size;
+        document.getElementById('req-color-specs').value = worker.colorSpecs || '-';
 
         if (worker.ppeType) {
             document.getElementById('req-ppe-type').value = worker.ppeType;
@@ -1026,7 +1051,8 @@
         html += `📅 Date: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.date}</code><br>`;
         html += `🏢 Dept: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.department}</code> | `;
         html += `📦 PPE: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.ppeType || '(Not detected)'}</code> | `;
-        html += `📏 Size: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.size || '(Not detected)'}</code>`;
+        html += `📏 Size: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.size || '(Not detected)'}</code> | `;
+        html += `🎨 Color/Specs: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.colorSpecs || '-'}</code>`;
 
         if (worker.detectedPpes.length > 1) {
             html += `<br><span style="color:#d97706; font-weight:600; display:block; margin-top:5px;">⚠️ Multiple PPE items detected: ${worker.detectedPpes.join(', ')}.<br>Currently pre-filled: ${worker.ppeType}. You can change the form dropdown to issue the other item.</span>`;
