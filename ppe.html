@@ -590,7 +590,7 @@
 
     // --- SMART EMAIL PASTE PARSER ---
     window.parsedWorkers = [];
-    window.selectedWorkerIndex = 0;
+    window.selectedWorkerIndex = undefined;
 
     function formatDateToYmd(date) {
         const yyyy = date.getFullYear();
@@ -660,6 +660,7 @@
                     throw new Error(result.message);
                 }
             } else {
+                window.selectedWorkerIndex = undefined;
                 window.parsedWorkers = result.workers || [];
                 window.parsedWorkers.forEach(w => {
                     w.detectedPpes = w.detectedPpes || (w.ppeType ? [w.ppeType] : []);
@@ -779,7 +780,7 @@
         document.getElementById('smart-paste-feedback').style.display = 'none';
         document.getElementById('smart-paste-feedback').innerHTML = '';
         window.parsedWorkers = [];
-        window.selectedWorkerIndex = 0;
+        window.selectedWorkerIndex = undefined;
         // Reset date to today
         document.getElementById('req-date').value = formatDateToYmd(new Date());
     }
@@ -792,7 +793,7 @@
             feedback.style.display = 'none';
             feedback.innerHTML = '';
             window.parsedWorkers = [];
-            window.selectedWorkerIndex = 0;
+            window.selectedWorkerIndex = undefined;
             return;
         }
 
