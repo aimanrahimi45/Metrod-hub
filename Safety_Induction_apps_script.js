@@ -5,6 +5,16 @@ function setupAuthorization() {
   SpreadsheetApp.getActiveSpreadsheet();
 }
 
+// Helper to safely target the safety induction sheet by common names
+function getInductionSheet(ss) {
+  var names = ["Safety Inductions", "Contractor Inductions", "Sheet1"];
+  for (var i = 0; i < names.length; i++) {
+    var sheet = ss.getSheetByName(names[i]);
+    if (sheet) return sheet;
+  }
+  return ss.getActiveSheet(); // fallback
+}
+
 function doPost(e) {
   var headers = {
     "Access-Control-Allow-Origin": "*",
@@ -15,7 +25,7 @@ function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getActiveSheet();
+    var sheet = getInductionSheet(ss);
     var timestamp = new Date();
     
     // Check if this is an approval request from the SHO dashboard
@@ -30,9 +40,13 @@ function doPost(e) {
       var inductionDate = data.inductionDate || new Date();
       
       // Update columns for matching ICs: Induction Date (Col E/index 4), Inducted By (Col F/index 5), Status (Col J/index 9)
+      // Safely matches ONLY rows that are currently "Pending Approval" to avoid duplicate test runs conflicts.
       data.workerIcs.forEach(function(ic) {
         for (var i = 1; i < rows.length; i++) {
-          if (String(rows[i][2]).trim() === String(ic).trim()) {
+          var rowIc = String(rows[i][2]).trim();
+          var rowStatus = rows[i][9] ? String(rows[i][9]).trim().toLowerCase() : "";
+          
+          if (rowIc === String(ic).trim() && rowStatus === "pending approval") {
             var rowNum = i + 1;
             sheet.getRange(rowNum, 5).setValue(inductionDate); // Update Induction Date
             sheet.getRange(rowNum, 6).setValue(data.inductedBy); // Update Inducted By
@@ -42,6 +56,8 @@ function doPost(e) {
           }
         }
       });
+      
+      SpreadsheetApp.flush(); // Force immediate database consistency
       
       return ContentService.createTextOutput(JSON.stringify({"status": "success", "count": count}))
         .setMimeType(ContentService.MimeType.JSON);
@@ -88,6 +104,8 @@ function doPost(e) {
       status             // Col J (Status: Approved / Pending Approval)
     ]);
     
+    SpreadsheetApp.flush(); // Force immediate database consistency
+    
     return ContentService.createTextOutput(JSON.stringify({"status": "success"}))
       .setMimeType(ContentService.MimeType.JSON);
       
@@ -120,7 +138,7 @@ function doGet(e) {
       }
       
       const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const sheet = ss.getActiveSheet();
+      const sheet = getInductionSheet(ss);
       const rows = sheet.getDataRange().getValues();
       
       // Col A: Timestamp, Col B: Name, Col C: IC Number
@@ -157,7 +175,7 @@ function doGet(e) {
     }
     
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getActiveSheet();
+    const sheet = getInductionSheet(ss);
     const rows = sheet.getDataRange().getValues();
     const headers = rows[0];
     const data = [];
@@ -195,7 +213,7 @@ function doGet(e) {
 // Relational/Relational Database Table Auto-Setup Function (DO NOT CLEAR DATA)
 function setupSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getActiveSheet();
+  const sheet = getInductionSheet(ss);
   
   const headers = [
     "Timestamp", "Name", "IC Number", "Company", "Induction Date", 
