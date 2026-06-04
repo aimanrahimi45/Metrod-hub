@@ -279,6 +279,7 @@
                                 <option value="Warehouse">Warehouse</option>
                                 <option value="Safety/HR">Safety/HR</option>
                                 <option value="Engineering">Engineering</option>
+                                <option value="Security">Security</option>
                                 <option value="Admin">Admin</option>
                                 <option value="Contractor">Contractor</option>
                                 <option value="Others">Others</option>
@@ -371,6 +372,7 @@
                             <option value="Warehouse">Warehouse</option>
                             <option value="Safety/HR">Safety/HR</option>
                             <option value="Engineering">Engineering</option>
+                            <option value="Security">Security</option>
                             <option value="Others">Others</option>
                         </select>
                     </div>
@@ -737,22 +739,59 @@
             'safety': 'Safety/HR',
             'hr': 'Safety/HR',
             'engineering': 'Engineering',
+            'security': 'Security',
             'admin': 'Admin',
             'contractor': 'Contractor'
         };
         
+        // Strip signatures safely by searching for standalone greetings
+        const sigRegex = /^(?:regards|best\s+regards|thanks|thank\s+you|best|sincerely),?\s*$/i;
+        
+        const segmentLines = segment.split(/\r?\n/);
+        let segmentCutoff = -1;
+        for (let k = 0; k < segmentLines.length; k++) {
+            if (sigRegex.test(segmentLines[k].trim())) {
+                segmentCutoff = k;
+                break;
+            }
+        }
+        const strippedSegment = (segmentCutoff !== -1) ? segmentLines.slice(0, segmentCutoff).join('\n') : segment;
+
+        const fullTextLines = fullText.split(/\r?\n/);
+        let fullTextCutoff = -1;
+        for (let k = 0; k < fullTextLines.length; k++) {
+            if (sigRegex.test(fullTextLines[k].trim())) {
+                fullTextCutoff = k;
+                break;
+            }
+        }
+        const strippedFullText = (fullTextCutoff !== -1) ? fullTextLines.slice(0, fullTextCutoff).join('\n') : fullText;
+
         let detectedDept = '';
-        const lowercaseFullText = fullText.toLowerCase();
-        const lowercaseSegment = segment.toLowerCase();
+        const lowercaseSegmentStripped = strippedSegment.toLowerCase();
+        const lowercaseFullTextStripped = strippedFullText.toLowerCase();
+
+        // 1. Search stripped segment first
         for (const [key, deptVal] of Object.entries(deptMap)) {
-            if (lowercaseSegment.includes(key)) {
+            if (lowercaseSegmentStripped.includes(key)) {
                 detectedDept = deptVal;
                 break;
             }
         }
+        // 2. Search stripped full text second
         if (!detectedDept) {
             for (const [key, deptVal] of Object.entries(deptMap)) {
-                if (lowercaseFullText.includes(key)) {
+                if (lowercaseFullTextStripped.includes(key)) {
+                    detectedDept = deptVal;
+                    break;
+                }
+            }
+        }
+        // 3. Fallback: Search complete full text (fail-safe in case of formatting anomalies)
+        if (!detectedDept) {
+            const lowercaseFullTextRaw = fullText.toLowerCase();
+            for (const [key, deptVal] of Object.entries(deptMap)) {
+                if (lowercaseFullTextRaw.includes(key)) {
                     detectedDept = deptVal;
                     break;
                 }
