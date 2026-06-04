@@ -247,7 +247,10 @@
                         </strong>
                         <button type="button" class="tab-btn btn-mini" style="padding:4px 8px; font-size:0.75rem; background:var(--border); color:var(--text-main);" onclick="clearSmartPaste()">Clear</button>
                     </div>
-                    <textarea id="smart-paste-area" rows="3" placeholder="Copy entire email from Outlook (Ctrl+A -> Ctrl+C) and paste it here (Ctrl+V)..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box; resize: vertical;" oninput="parseSmartPaste()"></textarea>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="text" id="smart-paste-subject" placeholder="Paste Email Subject / Title here..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box;" oninput="parseSmartPaste()">
+                        <textarea id="smart-paste-area" rows="3" placeholder="Paste Email Body content here..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box; resize: vertical;" oninput="parseSmartPaste()"></textarea>
+                    </div>
                     <div id="smart-paste-feedback" style="font-size: 0.8rem; margin-top: 10px; color: var(--text-muted); display: none; line-height: 1.5; padding: 8px; background: white; border-radius: 6px; border: 1px solid var(--border);"></div>
                 </div>
 
@@ -557,50 +560,64 @@
 
     // --- SMART EMAIL PASTE PARSER ---
     function clearSmartPaste() {
+        document.getElementById('smart-paste-subject').value = '';
         document.getElementById('smart-paste-area').value = '';
         document.getElementById('smart-paste-feedback').style.display = 'none';
         document.getElementById('smart-paste-feedback').innerHTML = '';
     }
 
     function parseSmartPaste() {
-        const text = document.getElementById('smart-paste-area').value;
+        const subjectText = document.getElementById('smart-paste-subject').value.trim();
+        const bodyText = document.getElementById('smart-paste-area').value.trim();
         const feedback = document.getElementById('smart-paste-feedback');
         
-        if (!text.trim()) {
+        if (!subjectText && !bodyText) {
             feedback.style.display = 'none';
             feedback.innerHTML = '';
             return;
         }
 
-        // 1. Staff ID extraction: Look for 5-digit number (typically starting with 20 or similar, but let's allow any 5 digit number)
+        // Combine subject and body text for comprehensive scanning
+        const combinedText = `Subject: ${subjectText}\n\n${bodyText}`;
+
+        // 1. Staff ID / Passport extraction:
+        // - idRegex: Look for 5-digit number (typically starting with 20 or similar)
+        // - passportRegex: Look for 1-2 letters followed by 6-9 digits (e.g. A12345678, E1234567)
         const idRegex = /\b(2\d{4})\b|\b(\d{5})\b/;
-        const idMatch = text.match(idRegex);
+        const passportRegex = /\b([A-Za-z]{1,2}\d{6,9})\b/;
+
+        const idMatch = combinedText.match(idRegex);
+        const passportMatch = combinedText.match(passportRegex);
         let staffId = '';
+
         if (idMatch) {
             staffId = idMatch[0];
             document.getElementById('req-staff-id').value = staffId;
-            // Trigger check for 6-month warning since Staff ID changed
+            checkSixMonthWarning();
+        } else if (passportMatch) {
+            staffId = passportMatch[0].toUpperCase();
+            document.getElementById('req-staff-id').value = staffId;
             checkSixMonthWarning();
         }
 
         // 2. Staff Name extraction
         let name = '';
         const nameLabelRegex = /(?:NAME|Name|name)\s*[:\-–]\s*([^\n\r]+)/;
-        const nameLabelMatch = text.match(nameLabelRegex);
+        const nameLabelMatch = combinedText.match(nameLabelRegex);
         if (nameLabelMatch) {
             name = nameLabelMatch[1].trim();
         } else {
-            // Find text near ID (before or after)
+            // Find text near the detected ID/Passport
             if (staffId) {
                 const escapedId = staffId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const nameBeforeRegex = new RegExp(`(?:joinee|for|name|to)\\s+([^\\n\\r(),\\-–]+?)\\s*\\(?\\b` + escapedId + `\\b`);
-                const matchBefore = text.match(nameBeforeRegex);
+                const matchBefore = combinedText.match(nameBeforeRegex);
                 
                 const simpleBeforeRegex = new RegExp(`([^\\n\\r(),\\-–]{3,40})\\s*\\(?\\b` + escapedId + `\\b`);
-                const matchSimpleBefore = text.match(simpleBeforeRegex);
+                const matchSimpleBefore = combinedText.match(simpleBeforeRegex);
 
                 const nameAfterRegex = new RegExp(`\\b` + escapedId + `\\b\\s*\\(?\\s*[-\\-–]\\s*([^\\n\\r().,\\-–]{3,40})`);
-                const matchAfter = text.match(nameAfterRegex);
+                const matchAfter = combinedText.match(nameAfterRegex);
 
                 if (matchBefore) {
                     name = matchBefore[1].trim();
@@ -613,9 +630,7 @@
         }
         
         if (name) {
-            // Clean up name prefix words
             name = name.replace(/^(?:the\s+)?(?:new\s+)?(?:joinee|employee|staff|worker)\s+/i, '');
-            // Clean trailing noise like operator roles or emails
             name = name.replace(/\s*–\s*.*$/i, '').trim();
             document.getElementById('req-staff-name').value = name;
         }
@@ -640,7 +655,7 @@
         };
         
         let detectedDept = '';
-        const lowercaseText = text.toLowerCase();
+        const lowercaseText = combinedText.toLowerCase();
         for (const [key, deptVal] of Object.entries(deptMap)) {
             if (lowercaseText.includes(key)) {
                 detectedDept = deptVal;
@@ -681,13 +696,13 @@
 
         // 5. Size extraction
         const sizeRegex = /(?:size|sz)\s*[:\-–\s]\s*([a-zA-Z0-9]+)/i;
-        const sizeMatch = text.match(sizeRegex);
+        const sizeMatch = combinedText.match(sizeRegex);
         let size = '';
         if (sizeMatch) {
             size = sizeMatch[1].trim();
             document.getElementById('req-size').value = size;
         } else {
-            const shoeSizeMatch = text.match(/\b(3[8-9]|4[0-6])\b/);
+            const shoeSizeMatch = combinedText.match(/\b(3[8-9]|4[0-6])\b/);
             if (shoeSizeMatch) {
                 size = shoeSizeMatch[0];
                 document.getElementById('req-size').value = size;
@@ -696,10 +711,9 @@
 
         // 6. Supervisor / Requestor name extraction (Sender name from header)
         const fromRegex = /(?:From|from)\s*:\s*([^<\n\r]+)/;
-        const fromMatch = text.match(fromRegex);
+        const fromMatch = combinedText.match(fromRegex);
         if (fromMatch) {
             let fromName = fromMatch[1].trim();
-            // Remove email wrapper if present e.g. "Devendran <...>" -> "Devendran"
             fromName = fromName.replace(/\s*<.*$/i, '').trim();
             document.getElementById('req-supervisor').value = fromName;
         }
@@ -708,7 +722,7 @@
         feedback.style.display = 'block';
         let feedbackHTML = `<strong>🔍 Smart Parse Extraction Summary:</strong><br>`;
         feedbackHTML += `👤 Name: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${name || '(Not detected)'}</code> | `;
-        feedbackHTML += `🆔 ID: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${staffId || '(Not detected)'}</code> | `;
+        feedbackHTML += `🆔 ID/Passport: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${staffId || '(Not detected)'}</code> | `;
         feedbackHTML += `🏢 Dept: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${detectedDept || '(Not detected)'}</code><br>`;
         feedbackHTML += `📦 PPE: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${detectedPpes[0] || '(Not detected)'}</code> | `;
         feedbackHTML += `📏 Size: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${size || '(Not detected)'}</code>`;
