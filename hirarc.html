@@ -232,6 +232,10 @@
 
                 <label>Area Owner Signature</label>
                 <canvas id="signature-pad"></canvas>
+                <div style="margin-top: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="save-sig-check" style="width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--primary);">
+                    <label for="save-sig-check" style="margin: 0; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); cursor: pointer; user-select: none;">Save signature on this device</label>
+                </div>
 
                 <div class="btn-group">
                     <button type="submit" class="action-btn submit-btn">Submit Approval</button>
@@ -312,10 +316,26 @@
             canvasSig.height = canvasSig.offsetHeight * ratio;
             canvasSig.getContext("2d").scale(ratio, ratio);
             signaturePad.clear();
+
+            // Load saved signature on startup after canvas size is set
+            const savedSig = localStorage.getItem('hirarc_saved_sig');
+            if (savedSig) {
+                setTimeout(() => {
+                    signaturePad.fromDataURL(savedSig);
+                }, 150);
+                const check = document.getElementById('save-sig-check');
+                if (check) check.checked = true;
+            }
         }
         window.onresize = resizeCanvas;
         resizeCanvas();
-        document.getElementById('clear').addEventListener('click', () => signaturePad.clear());
+
+        document.getElementById('clear').addEventListener('click', () => {
+            signaturePad.clear();
+            localStorage.removeItem('hirarc_saved_sig');
+            const check = document.getElementById('save-sig-check');
+            if (check) check.checked = false;
+        });
         document.getElementById('review_date').valueAsDate = new Date();
 
         // --- SUBMISSION ---
@@ -337,6 +357,14 @@
             submitBtn.disabled = true;
 
             const sigData = signaturePad.toDataURL();
+
+            // Save signature if checked
+            const saveSigCheck = document.getElementById('save-sig-check');
+            if (saveSigCheck && saveSigCheck.checked) {
+                localStorage.setItem('hirarc_saved_sig', sigData);
+            } else {
+                localStorage.removeItem('hirarc_saved_sig');
+            }
 
             const payload = {
                 department: document.getElementById('department').value,

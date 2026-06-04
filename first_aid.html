@@ -463,6 +463,10 @@
                                 <canvas class="signature-pad" id="sig-pad"></canvas>
                                 <button type="button" class="clear-btn" onclick="clearSignature()">Clear</button>
                             </div>
+                            <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="save-sig-check" style="width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--primary);">
+                                <label for="save-sig-check" style="margin: 0; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); cursor: pointer; user-select: none;">Save signature on this device</label>
+                            </div>
                         </div>
 
                         <!-- Instant Restock Checkbox -->
@@ -597,10 +601,25 @@
             resizeSignatureCanvas();
 
             window.addEventListener("resize", resizeSignatureCanvas);
+
+            // Load saved signature if available
+            const savedSig = localStorage.getItem('first_aid_saved_sig');
+            if (savedSig) {
+                setTimeout(() => {
+                    signaturePad.fromDataURL(savedSig);
+                }, 150);
+                const check = document.getElementById('save-sig-check');
+                if (check) check.checked = true;
+            }
         }
 
         function clearSignature() {
-            if (signaturePad) signaturePad.clear();
+            if (signaturePad) {
+                signaturePad.clear();
+                localStorage.removeItem('first_aid_saved_sig');
+                const check = document.getElementById('save-sig-check');
+                if (check) check.checked = false;
+            }
         }
 
         // --- Quick Standard Fill ---
@@ -624,6 +643,16 @@
                 return;
             }
 
+            const sigData = signaturePad.toDataURL('image/png');
+
+            // Save signature if checked
+            const saveSigCheck = document.getElementById('save-sig-check');
+            if (saveSigCheck && saveSigCheck.checked) {
+                localStorage.setItem('first_aid_saved_sig', sigData);
+            } else {
+                localStorage.removeItem('first_aid_saved_sig');
+            }
+
             const confirmSubmit = confirm("Submit this First Aid Box Inspection Log?");
             if (!confirmSubmit) return;
 
@@ -644,7 +673,7 @@
                 findings: document.getElementById('inspect-findings').value,
                 officerName: document.getElementById('officer-name').value,
                 officerPos: document.getElementById('officer-pos').value,
-                signature: signaturePad.toDataURL('image/png'), // base64 string
+                signature: sigData, // base64 string
                 instantRestock: document.getElementById('instant-restock-check').checked
             };
 

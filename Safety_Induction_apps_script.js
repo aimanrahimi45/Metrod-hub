@@ -14,8 +14,38 @@ function doPost(e) {
 
   try {
     var data = JSON.parse(e.postData.contents);
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getActiveSheet();
     var timestamp = new Date();
+    
+    // Check if this is an approval request from the SHO dashboard
+    if (data.action === "approveWorkers") {
+      if (data.pin !== DASHBOARD_PIN) {
+        return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": "Unauthorized: Invalid PIN"}))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      var rows = sheet.getDataRange().getValues();
+      var count = 0;
+      var inductionDate = data.inductionDate || new Date();
+      
+      // Update columns for matching ICs: Induction Date (Col E/index 4), Inducted By (Col F/index 5), Status (Col J/index 9)
+      data.workerIcs.forEach(function(ic) {
+        for (var i = 1; i < rows.length; i++) {
+          if (String(rows[i][2]).trim() === String(ic).trim()) {
+            var rowNum = i + 1;
+            sheet.getRange(rowNum, 5).setValue(inductionDate); // Update Induction Date
+            sheet.getRange(rowNum, 6).setValue(data.inductedBy); // Update Inducted By
+            sheet.getRange(rowNum, 10).setValue("Approved"); // Update Status
+            count++;
+            break;
+          }
+        }
+      });
+      
+      return ContentService.createTextOutput(JSON.stringify({"status": "success", "count": count}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     
     // --- GOOGLE DRIVE PHOTO SAVING LOGIC ---
     // Fetches the secure Drive Folder ID from Google Apps Script private Project Properties.
@@ -43,7 +73,8 @@ function doPost(e) {
     }
     // ---------------------------------------
 
-    // Make sure your Google Sheet has 9 columns now!
+    // Make sure your Google Sheet has 10 columns now!
+    var status = data.status || "Approved";
     sheet.appendRow([
       timestamp,         // Col A
       data.name,         // Col B
@@ -53,7 +84,8 @@ function doPost(e) {
       data.inducted_by,  // Col F
       data.declaration,  // Col G
       data.signature,    // Col H
-      photoUrl           // Col I (The Live Photo Link!)
+      photoUrl,          // Col I (The Live Photo Link!)
+      status             // Col J (Status: Approved / Pending Approval)
     ]);
     
     return ContentService.createTextOutput(JSON.stringify({"status": "success"}))
@@ -157,5 +189,28 @@ function doGet(e) {
       status: "ERROR",
       message: err.message
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// Relational/Relational Database Table Auto-Setup Function (DO NOT CLEAR DATA)
+function setupSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  
+  const headers = [
+    "Timestamp", "Name", "IC Number", "Company", "Induction Date", 
+    "Inducted By", "Declaration", "Signature", "Photo URL", "Status"
+  ];
+  
+  // Format Headers on Row 1 safely (DO NOT WIPE existing logs below Row 1)
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+  
+  try {
+    SpreadsheetApp.getUi().alert("🎉 Safety Induction Tab Setup Complete!", "Headers have been formatted safely.", SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (err) {
+    Logger.log("🎉 Safety Induction Tab Setup Complete! Headers formatted successfully.");
   }
 }
