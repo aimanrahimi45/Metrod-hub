@@ -77,7 +77,7 @@ function parseEmailWithAi(emailContent) {
     "- id: 5-digit Employee ID (e.g. 20585) or alphanumeric Passport number (e.g. J706376). Return empty string if not found.\n" +
     "- size: Shoe or item size mentioned for this specific PPE (e.g. '10', '9', '7', 'L'). Return '-' if not found or not applicable.\n" +
     "- date: Date of the request parsed from the email headers (Date: or Sent:) in YYYY-MM-DD format. Default to today's date if not found.\n" +
-    "- department: Must be mapped to one of these exact values: 'Production', 'Maintenance', 'QA/QC', 'Warehouse', 'Safety/HR', 'Engineering', 'Security', 'Admin', 'Contractor', or 'Others'.\n" +
+    "- department: Must be mapped to one of these exact values: 'Production', 'Maintenance', 'QA/QC', 'Warehouse', 'Safety/HR', 'Engineering', 'Security', 'Recycle', 'DIP', 'Logistic/Finance/Purchasing', 'Admin', 'Contractor', or 'Others'.\n" +
     "- ppeType: Must be mapped to one of these exact values: 'Safety Shoe', 'Safety Helmet', 'Respirator', 'Earmuff', 'Filter Cartridge', or 'Other'.\n" +
     "- supervisor: The sender of the email or supervisor name (usually found in the From: field).\n" +
     "- colorSpecs: Color/specs if mentioned (e.g., 'Yellow', 'Double Filter'). For example, if 'Helmet: Yellow' is requested, the object for Safety Helmet should have colorSpecs = 'Yellow'. Return '-' if not found.\n\n" +
