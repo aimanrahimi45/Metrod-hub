@@ -664,6 +664,8 @@
                 window.parsedWorkers.forEach(w => {
                     w.detectedPpes = w.detectedPpes || (w.ppeType ? [w.ppeType] : []);
                     w.colorSpecs = w.colorSpecs || "-";
+                    w.replacementReason = w.replacementReason || "Damaged";
+                    w.conditionRemarks = w.conditionRemarks || "-";
                 });
                 
                 if (window.parsedWorkers.length === 0) {
@@ -678,6 +680,97 @@
         } finally {
             btn.disabled = false;
             btn.innerText = origText;
+        }
+    }
+
+    function saveCurrentWorkerState() {
+        if (window.selectedWorkerIndex === undefined || window.selectedWorkerIndex < 0 || !window.parsedWorkers || window.selectedWorkerIndex >= window.parsedWorkers.length) {
+            return;
+        }
+        const worker = window.parsedWorkers[window.selectedWorkerIndex];
+        worker.date = document.getElementById('req-date').value;
+        worker.id = document.getElementById('req-staff-id').value.trim();
+        worker.name = document.getElementById('req-staff-name').value.trim();
+        worker.department = document.getElementById('req-dept').value;
+        worker.supervisor = document.getElementById('req-supervisor').value.trim();
+        worker.ppeType = document.getElementById('req-ppe-type').value;
+        worker.size = document.getElementById('req-size').value.trim();
+        worker.colorSpecs = document.getElementById('req-color-specs').value.trim();
+        worker.replacementReason = document.getElementById('req-reason').value;
+        worker.conditionRemarks = document.getElementById('req-remarks').value.trim();
+    }
+
+    async function submitAllParsedRequests() {
+        // Save current active worker inputs first
+        saveCurrentWorkerState();
+
+        if (!window.parsedWorkers || window.parsedWorkers.length === 0) {
+            alert("No parsed request records to submit.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to submit all ${window.parsedWorkers.length} parsed requests?`)) {
+            return;
+        }
+
+        const overlay = document.getElementById('loading-overlay');
+        const loadMsg = document.getElementById('loading-message');
+        const directIssue = document.getElementById('direct-dispatch').checked;
+
+        overlay.style.display = 'flex';
+        
+        let successCount = 0;
+        let failCount = 0;
+        let errors = [];
+
+        for (let i = 0; i < window.parsedWorkers.length; i++) {
+            const worker = window.parsedWorkers[i];
+            loadMsg.innerText = `Submitting request ${i + 1} of ${window.parsedWorkers.length}: ${worker.name || 'Unknown'} (${worker.ppeType})...`;
+            
+            const payload = {
+                requestDate: worker.date,
+                staffId: worker.id,
+                staffName: worker.name,
+                department: worker.department,
+                supervisorName: worker.supervisor,
+                ppeType: worker.ppeType,
+                size: worker.size || "-",
+                colorSpecs: worker.colorSpecs || "-",
+                replacementReason: worker.replacementReason || "Damaged",
+                conditionRemarks: worker.conditionRemarks || "-",
+                status: directIssue ? "Approved / Dispatched" : "Pending Approval",
+                authorizedBy: directIssue ? "Safety Officer" : ""
+            };
+
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                const text = await response.text();
+                const result = JSON.parse(text);
+                
+                if (result.status === "SUCCESS") {
+                    successCount++;
+                } else {
+                    failCount++;
+                    errors.push(`${worker.name || 'Unknown'} (${worker.ppeType}): ${result.message}`);
+                }
+            } catch (err) {
+                failCount++;
+                errors.push(`${worker.name || 'Unknown'} (${worker.ppeType}): ${err.message}`);
+            }
+        }
+
+        overlay.style.display = 'none';
+
+        if (failCount === 0) {
+            alert(`🎉 Successfully logged all ${successCount} requests!`);
+            clearSmartPaste();
+            loadDatabaseData(); // reload table logs
+        } else {
+            alert(`⚠️ Completed with errors.\nSuccessfully logged: ${successCount}\nFailed: ${failCount}\n\nErrors:\n${errors.join('\n')}`);
+            loadDatabaseData();
         }
     }
 
@@ -1008,6 +1101,10 @@
 
     function loadWorker(index) {
         if (index < 0 || index >= window.parsedWorkers.length) return;
+        
+        // Save previous worker's manual edits before switching
+        saveCurrentWorkerState();
+        
         window.selectedWorkerIndex = index;
         const worker = window.parsedWorkers[index];
 
@@ -1019,6 +1116,8 @@
         document.getElementById('req-supervisor').value = worker.supervisor;
         document.getElementById('req-size').value = worker.size;
         document.getElementById('req-color-specs').value = worker.colorSpecs || '-';
+        document.getElementById('req-reason').value = worker.replacementReason || 'Damaged';
+        document.getElementById('req-remarks').value = worker.conditionRemarks || '-';
 
         if (worker.ppeType) {
             document.getElementById('req-ppe-type').value = worker.ppeType;
@@ -1033,7 +1132,7 @@
 
         let html = '';
         if (window.parsedWorkers.length > 1) {
-            html += `<strong style="color:var(--primary); display:block; margin-bottom:8px;">👥 Detected ${window.parsedWorkers.length} Workers in Email list:</strong>`;
+            html += `<strong style="color:var(--primary); display:block; margin-bottom:8px;">👥 Detected ${window.parsedWorkers.length} requests in Email list:</strong>`;
             html += `<div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">`;
             window.parsedWorkers.forEach((w, idx) => {
                 const isActive = idx === index;
@@ -1043,6 +1142,12 @@
                 html += `<button type="button" style="${styleBtn}" onclick="loadWorker(${idx})">👤 ${idx + 1}. ${w.name || 'Unknown'} - ${w.ppeType || 'PPE'} (${w.id || 'No ID'})</button>`;
             });
             html += `</div>`;
+            html += `
+                <div style="margin-bottom:15px; background:rgba(124, 58, 237, 0.05); padding:10px; border-radius:8px; border:1px solid rgba(124, 58, 237, 0.15); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:0.8rem; color:#7c3aed; font-weight:500;">💡 Manual edits are saved in-memory as you switch between buttons!</span>
+                    <button type="button" class="submit-btn btn-mini" style="background:#7c3aed; color:white; border:none; padding:8px 16px; width:auto; box-shadow:0 2px 4px rgba(124, 58, 237, 0.2);" onclick="submitAllParsedRequests()">🚀 Submit All (${window.parsedWorkers.length} Requests)</button>
+                </div>
+            `;
         }
 
         html += `<strong>🔍 Active Worker Details:</strong><br>`;
