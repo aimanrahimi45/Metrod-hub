@@ -58,7 +58,23 @@ function doPost(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getPpeSheet(ss);
     const data = JSON.parse(e.postData.contents);
-    const timestamp = new Date();
+    
+    // Parse custom date from client if provided, otherwise default to current server time
+    let timestamp = new Date();
+    if (data.requestDate) {
+      const parts = data.requestDate.split('-');
+      if (parts.length === 3) {
+        // Create date in local timezone, retaining the current time of day for sorting
+        timestamp = new Date(
+          parseInt(parts[0], 10), 
+          parseInt(parts[1], 10) - 1, 
+          parseInt(parts[2], 10),
+          timestamp.getHours(),
+          timestamp.getMinutes(),
+          timestamp.getSeconds()
+        );
+      }
+    }
     
     // ACTION A: Approve/Reject or Dispatch Pending Request
     if (data.action === "updateRequestStatus") {

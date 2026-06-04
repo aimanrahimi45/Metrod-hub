@@ -247,15 +247,16 @@
                         </strong>
                         <button type="button" class="tab-btn btn-mini" style="padding:4px 8px; font-size:0.75rem; background:var(--border); color:var(--text-main);" onclick="clearSmartPaste()">Clear</button>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <input type="text" id="smart-paste-subject" placeholder="Paste Email Subject / Title here..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box;" oninput="parseSmartPaste()">
-                        <textarea id="smart-paste-area" rows="3" placeholder="Paste Email Body content here..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box; resize: vertical;" oninput="parseSmartPaste()"></textarea>
-                    </div>
+                    <textarea id="smart-paste-area" rows="4" placeholder="Forward email or copy entire email (Ctrl+A -> Ctrl+C) and paste it here (Ctrl+V)..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box; resize: vertical;" oninput="parseSmartPaste()"></textarea>
                     <div id="smart-paste-feedback" style="font-size: 0.8rem; margin-top: 10px; color: var(--text-muted); display: none; line-height: 1.5; padding: 8px; background: white; border-radius: 6px; border: 1px solid var(--border);"></div>
                 </div>
 
                 <form id="ppeRequestForm">
                     <div class="form-grid">
+                        <div class="input-group">
+                            <label>Request Date <span style="color:var(--danger)">*</span></label>
+                            <input type="date" id="req-date" required>
+                        </div>
                         <div class="input-group">
                             <label>Requestor / Supervisor <span style="color:var(--danger)">*</span></label>
                             <input type="text" id="req-supervisor" value="SHO" required>
@@ -562,21 +563,28 @@
     window.parsedWorkers = [];
     window.selectedWorkerIndex = 0;
 
+    function formatDateToYmd(date) {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
     function clearSmartPaste() {
-        document.getElementById('smart-paste-subject').value = '';
         document.getElementById('smart-paste-area').value = '';
         document.getElementById('smart-paste-feedback').style.display = 'none';
         document.getElementById('smart-paste-feedback').innerHTML = '';
         window.parsedWorkers = [];
         window.selectedWorkerIndex = 0;
+        // Reset date to today
+        document.getElementById('req-date').value = formatDateToYmd(new Date());
     }
 
     function parseSmartPaste() {
-        const subjectText = document.getElementById('smart-paste-subject').value.trim();
         const bodyText = document.getElementById('smart-paste-area').value.trim();
         const feedback = document.getElementById('smart-paste-feedback');
         
-        if (!subjectText && !bodyText) {
+        if (!bodyText) {
             feedback.style.display = 'none';
             feedback.innerHTML = '';
             window.parsedWorkers = [];
@@ -584,8 +592,7 @@
             return;
         }
 
-        // Combine subject and body text for comprehensive scanning
-        const combinedText = `Subject: ${subjectText}\n\n${bodyText}`;
+        const combinedText = bodyText;
         window.parsedWorkers = [];
 
         // Count Name labels or ID occurrences to check if it's a multi-worker list
@@ -768,10 +775,45 @@
             supervisor = fromMatch[1].replace(/\s*<.*$/i, '').trim();
         }
 
+        // 5. Date extraction (Outlook headers "Date:" or "Sent:")
+        let dateStr = '';
+        const dateHeaderRegex = /(?:Date|Sent)\s*[:\-–]\s*([^\n\r]+)/i;
+        const dateHeaderMatch = segment.match(dateHeaderRegex) || fullText.match(dateHeaderRegex);
+        
+        if (dateHeaderMatch) {
+            const rawDate = dateHeaderMatch[1].trim();
+            let cleanedDate = rawDate.replace(/\bat\b/gi, '')
+                                     .replace(/\d{1,2}:\d{2}(?:\s*(?:AM|PM|am|pm))?/gi, '')
+                                     .replace(/[\n\r]/g, '')
+                                     .trim();
+                                     
+            const dmyRegex = /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/;
+            const dmyMatch = cleanedDate.match(dmyRegex);
+            if (dmyMatch) {
+                const day = parseInt(dmyMatch[1], 10);
+                const month = parseInt(dmyMatch[2], 10) - 1;
+                const year = parseInt(dmyMatch[3], 10);
+                const parsedDate = new Date(year, month, day);
+                if (!isNaN(parsedDate.getTime())) {
+                    dateStr = formatDateToYmd(parsedDate);
+                }
+            } else {
+                const parsedDate = new Date(cleanedDate);
+                if (!isNaN(parsedDate.getTime())) {
+                    dateStr = formatDateToYmd(parsedDate);
+                }
+            }
+        }
+        
+        if (!dateStr) {
+            dateStr = formatDateToYmd(new Date());
+        }
+
         return {
             name: name,
             id: staffId,
             size: size,
+            date: dateStr,
             department: detectedDept || 'Contractor',
             ppeType: detectedPpes[0] || '',
             detectedPpes: detectedPpes,
@@ -785,6 +827,7 @@
         const worker = window.parsedWorkers[index];
 
         // Populate Form Inputs
+        document.getElementById('req-date').value = worker.date;
         document.getElementById('req-staff-id').value = worker.id;
         document.getElementById('req-staff-name').value = worker.name;
         document.getElementById('req-dept').value = worker.department;
@@ -819,7 +862,8 @@
         html += `<strong>🔍 Active Worker Details:</strong><br>`;
         html += `👤 Name: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.name || '(Not detected)'}</code> | `;
         html += `🆔 ID/Passport: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.id || '(Not detected)'}</code> | `;
-        html += `🏢 Dept: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.department}</code><br>`;
+        html += `📅 Date: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.date}</code><br>`;
+        html += `🏢 Dept: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.department}</code> | `;
         html += `📦 PPE: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.ppeType || '(Not detected)'}</code> | `;
         html += `📏 Size: <code style="background:#f1f5f9; padding:2px 4px; border-radius:4px; font-weight:600;">${worker.size || '(Not detected)'}</code>`;
 
@@ -908,6 +952,7 @@
         const remarksVal = document.getElementById('req-remarks').value.trim();
 
         const payload = {
+            requestDate: document.getElementById('req-date').value,
             staffId: document.getElementById('req-staff-id').value.trim(),
             staffName: document.getElementById('req-staff-name').value.trim(),
             department: document.getElementById('req-dept').value,
@@ -939,6 +984,7 @@
             
             // Reset form
             this.reset();
+            document.getElementById('req-date').value = formatDateToYmd(new Date());
             document.getElementById('req-supervisor').value = "SHO";
             document.getElementById('direct-dispatch').checked = true;
             document.getElementById('warning-card').style.display = 'none';
@@ -1289,6 +1335,7 @@
     }
 
     // Initialize checking
+    document.getElementById('req-date').value = formatDateToYmd(new Date());
     verifyPinState();
 </script>
 </body>
