@@ -478,23 +478,68 @@
         return localStorage.getItem("metrod_dashboard_pin") || "";
     }
 
-    function verifyPinState() {
+    async function verifyPinState() {
         const pin = getDashboardPin();
         if (pin) {
-            document.getElementById('lock-screen').style.display = 'none';
-            document.getElementById('dashboard-content').style.display = 'block';
-            loadDatabaseData();
+            const overlay = document.getElementById('loading-overlay');
+            const loadMsg = document.getElementById('loading-message');
+            overlay.style.display = 'flex';
+            loadMsg.innerText = "Verifying security PIN & loading database...";
+
+            try {
+                const response = await fetch(`${APPS_SCRIPT_URL}?action=getRequests&pin=${pin}`);
+                const resJson = await response.json();
+
+                if (resJson.status === "ERROR") {
+                    localStorage.removeItem("metrod_dashboard_pin");
+                    document.getElementById('lock-screen').style.display = 'block';
+                    document.getElementById('dashboard-content').style.display = 'none';
+                    alert("❌ Session expired or PIN invalid. Please unlock again.");
+                } else {
+                    ppeData = resJson.data || [];
+                    document.getElementById('lock-screen').style.display = 'none';
+                    document.getElementById('dashboard-content').style.display = 'block';
+                    filterData();
+                }
+            } catch (err) {
+                console.error("PIN check failed: ", err);
+                const tbody = document.getElementById('logs-tbody');
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:#dc2626;">Connection error: ${err.message}</td></tr>`;
+            } finally {
+                overlay.style.display = 'none';
+            }
         } else {
             document.getElementById('lock-screen').style.display = 'block';
             document.getElementById('dashboard-content').style.display = 'none';
         }
     }
 
-    function unlockSystem() {
+    async function unlockSystem() {
         const pin = prompt("🔐 Please enter the Safety Hub PIN to unlock the PPE Management system:");
         if (pin) {
-            localStorage.setItem("metrod_dashboard_pin", pin);
-            verifyPinState();
+            const overlay = document.getElementById('loading-overlay');
+            const loadMsg = document.getElementById('loading-message');
+            overlay.style.display = 'flex';
+            loadMsg.innerText = "Verifying security PIN...";
+
+            try {
+                const response = await fetch(`${APPS_SCRIPT_URL}?action=getRequests&pin=${pin}`);
+                const resJson = await response.json();
+
+                if (resJson.status === "ERROR") {
+                    alert("❌ Invalid PIN entered!");
+                } else {
+                    localStorage.setItem("metrod_dashboard_pin", pin);
+                    ppeData = resJson.data || [];
+                    document.getElementById('lock-screen').style.display = 'none';
+                    document.getElementById('dashboard-content').style.display = 'block';
+                    filterData();
+                }
+            } catch (err) {
+                alert("❌ Authentication Failed: " + err.message);
+            } finally {
+                overlay.style.display = 'none';
+            }
         }
     }
 
@@ -627,6 +672,11 @@
         const tbody = document.getElementById('logs-tbody');
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Fetching latest data from Google Sheet...</td></tr>';
 
+        const overlay = document.getElementById('loading-overlay');
+        const loadMsg = document.getElementById('loading-message');
+        overlay.style.display = 'flex';
+        loadMsg.innerText = "Refreshing database...";
+
         try {
             const response = await fetch(`${APPS_SCRIPT_URL}?action=getRequests&pin=${pin}`);
             const resJson = await response.json();
@@ -642,6 +692,8 @@
 
         } catch (err) {
             tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:#dc2626;">Failed to load data: ${err.message}</td></tr>`;
+        } finally {
+            overlay.style.display = 'none';
         }
     }
 
