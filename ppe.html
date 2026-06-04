@@ -658,6 +658,13 @@
             }
         }
 
+        // Get the specific line containing the Staff ID/Passport to isolate searches
+        let idLine = '';
+        if (staffId) {
+            const lines = segment.split(/\r?\n/);
+            idLine = lines.find(l => l.includes(staffId)) || '';
+        }
+
         // 2. Name
         let name = '';
         const nameLabelRegex = /(?:NAME|Name|name)\s*[:\-–]\s*([^\n\r]+)/;
@@ -666,14 +673,15 @@
             name = nameLabelMatch[1].trim();
         } else if (staffId) {
             const escapedId = staffId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const targetText = idLine || segment; // Search ID line first to avoid cross-worker bleeding
             const nameBeforeRegex = new RegExp(`(?:joinee|for|name|to)\\s+([^\\n\\r(),\\-–]+?)\\s*\\(?\\b` + escapedId + `\\b`, 'i');
-            const matchBefore = segment.match(nameBeforeRegex);
+            const matchBefore = targetText.match(nameBeforeRegex);
             
             const simpleBeforeRegex = new RegExp(`([^\\n\\r(),\\-–]{3,40})\\s*\\(?\\b` + escapedId + `\\b`);
-            const matchSimpleBefore = segment.match(simpleBeforeRegex);
+            const matchSimpleBefore = targetText.match(simpleBeforeRegex);
 
             const nameAfterRegex = new RegExp(`\\b` + escapedId + `\\b\\s*\\(?\\s*[-\\-–]\\s*([^\\n\\r().,\\-–]{3,40})`, 'i');
-            const matchAfter = segment.match(nameAfterRegex);
+            const matchAfter = targetText.match(nameAfterRegex);
 
             if (matchBefore) {
                 name = matchBefore[1].trim();
@@ -689,20 +697,25 @@
             name = name.replace(/\s*–\s*.*$/i, '').trim();
             name = name.replace(/(?:Passport|No|ID|Shoe|Size).*$/i, '').trim();
             name = name.replace(/^[:\-–\s]+/, '').trim();
+            // Strip leading table row numbers and tabs/spaces (e.g. "1\t", "2.", "3 - ")
+            name = name.replace(/^[0-9\.\s\t#\-–]+/, '').trim();
         }
 
         // 3. Size
-        const sizeRegex = /(?:size|sz)\s*[:\-–\s]\s*([a-zA-Z0-9]+)/i;
+        // sizeRegex: Prevent crossing newlines by using [ \t] instead of \s
+        const sizeRegex = /(?:size|sz)[ \t]*[:\-–]?[ \t]*([a-zA-Z0-9]+)/i;
         const sizeMatch = segment.match(sizeRegex);
         let size = '';
         if (sizeMatch) {
             size = sizeMatch[1].trim();
         } else {
-            const shoeSizeMatch = segment.match(/\b(3[8-9]|4[0-6])\b/);
+            // Find standalone numbers first on the ID line, falling back to the wider segment
+            const targetText = idLine || segment;
+            const shoeSizeMatch = targetText.match(/\b(3[8-9]|4[0-6])\b/) || segment.match(/\b(3[8-9]|4[0-6])\b/);
             if (shoeSizeMatch) {
                 size = shoeSizeMatch[0];
             } else {
-                const numberMatch = segment.match(/\b([5-9]|1[0-2])\b/);
+                const numberMatch = targetText.match(/\b([5-9]|1[0-2])\b/) || segment.match(/\b([5-9]|1[0-2])\b/);
                 if (numberMatch) {
                     size = numberMatch[0];
                 }
