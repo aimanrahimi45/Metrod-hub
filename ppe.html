@@ -206,6 +206,30 @@
         }
         .heavy-user-name { font-weight: 600; color: var(--text-main); }
         .heavy-user-count { background: var(--primary); color: white; font-weight: bold; border-radius: 20px; padding: 2px 8px; font-size: 0.75rem; }
+
+        /* Fullscreen and Inline Spinner Styles */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        .spinner-mini {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(37, 99, 235, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -245,7 +269,10 @@
                         <strong style="color: var(--primary); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
                             ⚡ Smart Email Paste Assistant (Optional)
                         </strong>
-                        <button type="button" class="tab-btn btn-mini" style="padding:4px 8px; font-size:0.75rem; background:var(--border); color:var(--text-main);" onclick="clearSmartPaste()">Clear</button>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" id="btn-ai-parse" class="submit-btn btn-mini" style="padding:4px 10px; font-size:0.75rem; background:#7c3aed; color:white; width:auto; border:none; box-shadow:0 2px 4px rgba(124, 58, 237, 0.2);" onclick="triggerAiParse()">🪄 AI Parse</button>
+                            <button type="button" class="tab-btn btn-mini" style="padding:4px 8px; font-size:0.75rem; background:var(--border); color:var(--text-main);" onclick="clearSmartPaste()">Clear</button>
+                        </div>
                     </div>
                     <textarea id="smart-paste-area" rows="4" placeholder="Forward email or copy entire email (Ctrl+A -> Ctrl+C) and paste it here (Ctrl+V)..." style="width: 100%; font-size: 0.85rem; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--border); box-sizing: border-box; resize: vertical;" oninput="parseSmartPaste()"></textarea>
                     <div id="smart-paste-feedback" style="font-size: 0.8rem; margin-top: 10px; color: var(--text-muted); display: none; line-height: 1.5; padding: 8px; background: white; border-radius: 6px; border: 1px solid var(--border);"></div>
@@ -570,6 +597,88 @@
         const mm = String(date.getMonth() + 1).padStart(2, '0');
         const dd = String(date.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
+    }
+
+    async function triggerAiParse() {
+        const bodyText = document.getElementById('smart-paste-area').value.trim();
+        const feedback = document.getElementById('smart-paste-feedback');
+        const pin = getDashboardPin();
+
+        if (!bodyText) {
+            alert("⚠️ Please paste the email content first.");
+            return;
+        }
+
+        if (!pin) {
+            alert("🔐 Please unlock the dashboard first.");
+            return;
+        }
+
+        feedback.style.display = 'block';
+        feedback.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="spinner-mini"></span>
+                <span style="color:var(--primary); font-weight:600;">🪄 AI is analyzing the email, please wait...</span>
+            </div>
+        `;
+        
+        const btn = document.getElementById('btn-ai-parse');
+        const origText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "⏳ Loading...";
+
+        try {
+            const payload = {
+                action: "parseEmailWithAi",
+                pin: pin,
+                emailContent: bodyText
+            };
+
+            const response = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            const text = await response.text();
+            const result = JSON.parse(text);
+
+            if (result.status === "ERROR") {
+                if (result.message && (result.message.indexOf("Missing AI_API_KEY") !== -1 || result.message.indexOf("AI_API_KEY") !== -1)) {
+                    feedback.innerHTML = `
+                        <div style="color:#ef4444; font-weight:600; margin-bottom:8px;">⚠️ AI API Settings Not Configured!</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); line-height:1.4;">
+                            To enable AI email parsing, you must add the following properties in your Google Apps Script project:
+                            <br>1. Open your Google Sheet -> <strong>Extensions</strong> -> <strong>Apps Script</strong>.
+                            <br>2. Go to ⚙️ <strong>Project Settings</strong> (gear icon on the left).
+                            <br>3. Scroll to <strong>Script Properties</strong> and add:
+                            <br>&nbsp;&nbsp;&nbsp;&nbsp;• <code>AI_API_KEY</code> = <em>(Your OpenAI-compatible API Key)</em>
+                            <br>&nbsp;&nbsp;&nbsp;&nbsp;• <code>AI_BASE_URL</code> = <em>(Your custom base URL, e.g. <code>https://api.openai.com/v1</code>)</em>
+                            <br>&nbsp;&nbsp;&nbsp;&nbsp;• <code>AI_MODEL</code> = <em>(Your custom model name, e.g. <code>gpt-4o-mini</code>)</em>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.message);
+                }
+            } else {
+                window.parsedWorkers = result.workers || [];
+                window.parsedWorkers.forEach(w => {
+                    w.detectedPpes = w.detectedPpes || (w.ppeType ? [w.ppeType] : []);
+                    w.colorSpecs = w.colorSpecs || "-";
+                });
+                
+                if (window.parsedWorkers.length === 0) {
+                    feedback.innerHTML = `<span style="color:#ef4444; font-weight:600;">⚠️ AI was unable to extract any worker details from this email. Please check layout.</span>`;
+                } else {
+                    loadWorker(0);
+                }
+            }
+        } catch (err) {
+            feedback.innerHTML = `<span style="color:#ef4444; font-weight:600;">❌ AI Parsing Failed: ${err.message}</span>`;
+            console.error("AI parse error: ", err);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = origText;
+        }
     }
 
     function clearSmartPaste() {

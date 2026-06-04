@@ -52,12 +52,100 @@ function getNextRequestId(sheet) {
   return "REQ-" + (lastRow).toString().padStart(5, '0');
 }
 
+// Helper to parse email with custom OpenAI-compatible AI API
+function parseEmailWithAi(emailContent) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("AI_API_KEY");
+  const baseUrl = PropertiesService.getScriptProperties().getProperty("AI_BASE_URL");
+  const model = PropertiesService.getScriptProperties().getProperty("AI_MODEL") || "gpt-4o-mini";
+  
+  if (!apiKey || !baseUrl) {
+    throw new Error("Missing AI_API_KEY or AI_BASE_URL in Google Apps Script Script Properties.");
+  }
+  
+  let url = baseUrl.trim();
+  if (url.endsWith("/")) {
+    url = url.slice(0, -1);
+  }
+  if (!url.endsWith("/chat/completions")) {
+    url = url + "/chat/completions";
+  }
+  
+  const systemPrompt = "You are a precise data extractor for a safety department. Your task is to extract PPE replacement request records from unstructured email texts.\n" +
+    "Analyze the email text and return a JSON array of worker request objects. Each object MUST represent one worker and contain the following keys exactly:\n" +
+    "- name: Full name of the worker requesting PPE (strip row numbers, table indices, signature text, clean whitespace).\n" +
+    "- id: 5-digit Employee ID (e.g. 20585) or alphanumeric Passport number (e.g. J706376). Return empty string if not found.\n" +
+    "- size: Shoe or item size mentioned (e.g., '9', '7', 'L'). Return '-' if not found.\n" +
+    "- date: Date of the request parsed from the email headers (Date: or Sent:) in YYYY-MM-DD format. Default to today's date if not found.\n" +
+    "- department: Must be mapped to one of these exact values: 'Production', 'Maintenance', 'QA/QC', 'Warehouse', 'Safety/HR', 'Engineering', 'Security', 'Admin', 'Contractor', or 'Others'.\n" +
+    "- ppeType: Must be mapped to one of these exact values: 'Safety Shoe', 'Safety Helmet', 'Respirator', 'Earmuff', 'Filter Cartridge', or 'Other'.\n" +
+    "- supervisor: The sender of the email or supervisor name (usually found in the From: field).\n" +
+    "- colorSpecs: Color/specs if mentioned (e.g., 'Yellow', 'Double Filter'). Return '-' if not found.\n\n" +
+    "Your response MUST be a valid JSON array and NOTHING else. Do NOT wrap in markdown code blocks like ```json.";
+
+  const userPrompt = "Email Content:\n\"\"\"\n" + emailContent + "\n\"\"\"";
+  
+  const payload = {
+    model: model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    temperature: 0.1
+  };
+  
+  const options = {
+    method: "post",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  const response = UrlFetchApp.fetch(url, options);
+  const responseCode = response.getResponseCode();
+  const responseText = response.getContentText();
+  
+  if (responseCode !== 200) {
+    throw new Error("AI API returned status code " + responseCode + ": " + responseText);
+  }
+  
+  const resJson = JSON.parse(responseText);
+  if (!resJson.choices || resJson.choices.length === 0 || !resJson.choices[0].message) {
+    throw new Error("Invalid API response format: " + responseText);
+  }
+  
+  let content = resJson.choices[0].message.content.trim();
+  
+  // Clean markdown block wrappers if the model ignored instructions
+  if (content.startsWith("```")) {
+    content = content.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+  }
+  
+  try {
+    return JSON.parse(content);
+  } catch (err) {
+    throw new Error("Failed to parse AI output as JSON. Output was: " + content);
+  }
+}
+
 // 2. WEB APP POST HANDLER (CREATION & APPROVALS)
 function doPost(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getPpeSheet(ss);
     const data = JSON.parse(e.postData.contents);
+    
+    // ACTION A: AI Parse Email Content
+    if (data.action === "parseEmailWithAi") {
+      if (data.pin !== DASHBOARD_PIN) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Unauthorized PIN" })).setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      const parsedWorkers = parseEmailWithAi(data.emailContent);
+      return ContentService.createTextOutput(JSON.stringify({ status: "SUCCESS", workers: parsedWorkers })).setMimeType(ContentService.MimeType.JSON);
+    }
     
     // Parse custom date from client if provided, otherwise default to current server time
     let timestamp = new Date();
@@ -76,7 +164,7 @@ function doPost(e) {
       }
     }
     
-    // ACTION A: Approve/Reject or Dispatch Pending Request
+    // ACTION B: Approve/Reject or Dispatch Pending Request
     if (data.action === "updateRequestStatus") {
       if (data.pin !== DASHBOARD_PIN) {
         return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Unauthorized PIN" })).setMimeType(ContentService.MimeType.JSON);
