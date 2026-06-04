@@ -1040,7 +1040,7 @@
                 const styleBtn = isActive 
                     ? `background:var(--primary); color:white; border:1px solid var(--primary); font-weight:600; cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.75rem;`
                     : `background:white; color:var(--text-main); border:1px solid var(--border); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.75rem;`;
-                html += `<button type="button" style="${styleBtn}" onclick="loadWorker(${idx})">👤 ${idx + 1}. ${w.name || 'Unknown'} (${w.id || 'No ID'})</button>`;
+                html += `<button type="button" style="${styleBtn}" onclick="loadWorker(${idx})">👤 ${idx + 1}. ${w.name || 'Unknown'} - ${w.ppeType || 'PPE'} (${w.id || 'No ID'})</button>`;
             });
             html += `</div>`;
         }

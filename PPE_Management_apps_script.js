@@ -71,15 +71,16 @@ function parseEmailWithAi(emailContent) {
   }
   
   const systemPrompt = "You are a precise data extractor for a safety department. Your task is to extract PPE replacement request records from unstructured email texts.\n" +
-    "Analyze the email text and return a JSON array of worker request objects. Each object MUST represent one worker and contain the following keys exactly:\n" +
+    "Analyze the email text and return a JSON array of request objects. You MUST generate one separate object per individual PPE item requested. If a single worker requests multiple PPE items (e.g. both Safety Shoes and a Safety Helmet, or multiple items listed together), create a separate object for EACH item requested by that worker so they can be logged individually.\n" +
+    "Each object must contain the following keys exactly:\n" +
     "- name: Full name of the worker requesting PPE (strip row numbers, table indices, signature text, clean whitespace).\n" +
     "- id: 5-digit Employee ID (e.g. 20585) or alphanumeric Passport number (e.g. J706376). Return empty string if not found.\n" +
-    "- size: Shoe or item size mentioned (e.g., '9', '7', 'L'). Return '-' if not found.\n" +
+    "- size: Shoe or item size mentioned for this specific PPE (e.g. '10', '9', '7', 'L'). Return '-' if not found or not applicable.\n" +
     "- date: Date of the request parsed from the email headers (Date: or Sent:) in YYYY-MM-DD format. Default to today's date if not found.\n" +
     "- department: Must be mapped to one of these exact values: 'Production', 'Maintenance', 'QA/QC', 'Warehouse', 'Safety/HR', 'Engineering', 'Security', 'Admin', 'Contractor', or 'Others'.\n" +
     "- ppeType: Must be mapped to one of these exact values: 'Safety Shoe', 'Safety Helmet', 'Respirator', 'Earmuff', 'Filter Cartridge', or 'Other'.\n" +
     "- supervisor: The sender of the email or supervisor name (usually found in the From: field).\n" +
-    "- colorSpecs: Color/specs if mentioned (e.g., 'Yellow', 'Double Filter'). Return '-' if not found.\n\n" +
+    "- colorSpecs: Color/specs if mentioned (e.g., 'Yellow', 'Double Filter'). For example, if 'Helmet: Yellow' is requested, the object for Safety Helmet should have colorSpecs = 'Yellow'. Return '-' if not found.\n\n" +
     "Your response MUST be a valid JSON array and NOTHING else. Do NOT wrap in markdown code blocks like ```json.";
 
   const userPrompt = "Email Content:\n\"\"\"\n" + emailContent + "\n\"\"\"";
