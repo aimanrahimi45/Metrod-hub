@@ -767,6 +767,7 @@
         }
         const strippedFullText = (fullTextCutoff !== -1) ? fullTextLines.slice(0, fullTextCutoff).join('\n') : fullText;
 
+        const lowercaseFullTextRaw = fullText.toLowerCase();
         let detectedDept = '';
         const lowercaseSegmentStripped = strippedSegment.toLowerCase();
         const lowercaseFullTextStripped = strippedFullText.toLowerCase();
@@ -789,7 +790,6 @@
         }
         // 3. Fallback: Search complete full text (fail-safe in case of formatting anomalies)
         if (!detectedDept) {
-            const lowercaseFullTextRaw = fullText.toLowerCase();
             for (const [key, deptVal] of Object.entries(deptMap)) {
                 if (lowercaseFullTextRaw.includes(key)) {
                     detectedDept = deptVal;
@@ -813,7 +813,7 @@
 
         const detectedPpes = [];
         for (const [key, ppeVal] of Object.entries(ppeMap)) {
-            if (lowercaseFullText.includes(key)) {
+            if (lowercaseFullTextRaw.includes(key)) {
                 if (!detectedPpes.includes(ppeVal)) {
                     detectedPpes.push(ppeVal);
                 }
