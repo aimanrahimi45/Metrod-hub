@@ -71,7 +71,7 @@ function parseEmailWithAi(emailContent) {
   }
   
   const systemPrompt = "You are a precise data extractor for a safety department. Your task is to extract PPE replacement request records from unstructured email texts.\n" +
-    "Analyze the email text and return a JSON array of request objects. You MUST generate one separate object per individual PPE item requested. If a single worker requests multiple PPE items (e.g. both Safety Shoes and a Safety Helmet, or multiple items listed together), create a separate object for EACH item requested by that worker so they can be logged individually.\n" +
+    "Analyze the email text and return a JSON array of request objects. You MUST generate one separate object per individual PPE item requested. If a single worker requests multiple PPE items (e.g. both Safety Shoes and a Safety Helmet, or multiple items listed together), create a separate object for EACH item requested by that worker so they can be logged individually. For every object generated for a specific worker, you MUST duplicate and copy that worker's name, employee ID/passport, department, and supervisor details. Never leave name or id blank or 'Unknown' for secondary items if they are mentioned anywhere in that worker's text block.\n" +
     "Each object must contain the following keys exactly:\n" +
     "- name: Full name of the worker requesting PPE (strip row numbers, table indices, signature text, clean whitespace).\n" +
     "- id: 5-digit Employee ID (e.g. 20585) or alphanumeric Passport number (e.g. J706376). Return empty string if not found.\n" +
