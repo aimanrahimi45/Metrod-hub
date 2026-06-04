@@ -230,6 +230,82 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-notification {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.95);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            max-width: 420px;
+            transform: translateX(120%);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+        }
+        .toast-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        .toast-notification.success {
+            border-left: 4px solid #10b981;
+        }
+        .toast-notification.error {
+            border-left: 4px solid #ef4444;
+        }
+        .toast-notification.warning {
+            border-left: 4px solid #f59e0b;
+        }
+        .toast-notification.info {
+            border-left: 4px solid #3b82f6;
+        }
+        .toast-icon {
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .toast-message {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+            flex: 1;
+            line-height: 1.4;
+        }
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 2px 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .toast-close:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: var(--text-main);
+        }
     </style>
 </head>
 <body>
@@ -599,6 +675,56 @@
         return `${yyyy}-${mm}-${dd}`;
     }
 
+    function showToast(message, type = 'success', duration = 3000) {
+        let container = document.querySelector('.toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast-notification ${type}`;
+
+        let icon = 'ℹ️';
+        if (type === 'success') icon = '🎉';
+        else if (type === 'error') icon = '❌';
+        else if (type === 'warning') icon = '⚠️';
+
+        toast.innerHTML = `
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-message">${message}</div>
+            <button type="button" class="toast-close">&times;</button>
+        `;
+
+        container.appendChild(toast);
+
+        // Slide in
+        setTimeout(() => toast.classList.add('show'), 50);
+
+        // Setup auto close
+        let closeTimeout = setTimeout(() => {
+            closeToast(toast);
+        }, duration);
+
+        // Click X to close
+        toast.querySelector('.toast-close').addEventListener('click', () => {
+            clearTimeout(closeTimeout);
+            closeToast(toast);
+        });
+    }
+
+    function closeToast(toast) {
+        toast.classList.remove('show');
+        toast.style.transform = 'translateX(120%)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 400);
+    }
+
     async function triggerAiParse() {
         const bodyText = document.getElementById('smart-paste-area').value.trim();
         const feedback = document.getElementById('smart-paste-feedback');
@@ -766,7 +892,7 @@
         overlay.style.display = 'none';
 
         if (failCount === 0) {
-            alert(`🎉 Successfully logged all ${successCount} requests!`);
+            showToast(`Successfully logged all ${successCount} requests!`, "success", 3000);
             clearSmartPaste();
             loadDatabaseData(); // reload table logs
         } else {
@@ -1273,7 +1399,7 @@
             }
 
             overlay.style.display = 'none';
-            alert(`🎉 PPE Request logged successfully! Request ID: ${result.requestId}`);
+            showToast(`PPE Request logged successfully! Request ID: ${result.requestId}`, "success", 3000);
             
             // Reset form
             this.reset();
@@ -1428,7 +1554,7 @@
             }
 
             overlay.style.display = 'none';
-            alert(`🎉 Request ${requestId} successfully updated to ${newStatus.split(' / ')[0]}!`);
+            showToast(`Request ${requestId} successfully updated to ${newStatus.split(' / ')[0]}!`, "success", 3000);
             loadDatabaseData(); // Reload
 
         } catch (err) {
