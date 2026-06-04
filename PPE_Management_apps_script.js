@@ -140,7 +140,7 @@ function doPost(e) {
     
     // ACTION A: AI Parse Email Content
     if (data.action === "parseEmailWithAi") {
-      if (data.pin !== DASHBOARD_PIN) {
+      if (String(data.pin).trim() !== String(DASHBOARD_PIN).trim()) {
         return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Unauthorized PIN" })).setMimeType(ContentService.MimeType.JSON);
       }
       
@@ -167,7 +167,7 @@ function doPost(e) {
     
     // ACTION B: Approve/Reject or Dispatch Pending Request
     if (data.action === "updateRequestStatus") {
-      if (data.pin !== DASHBOARD_PIN) {
+      if (String(data.pin).trim() !== String(DASHBOARD_PIN).trim()) {
         return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Unauthorized PIN" })).setMimeType(ContentService.MimeType.JSON);
       }
       
@@ -281,7 +281,7 @@ function doGet(e) {
     
     // ACTION B: Get All Requests (Requires PIN)
     const pin = e.parameter.pin;
-    if (pin !== DASHBOARD_PIN) {
+    if (String(pin).trim() !== String(DASHBOARD_PIN).trim()) {
       return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: "Unauthorized PIN" })).setMimeType(ContentService.MimeType.JSON);
     }
     
