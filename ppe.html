@@ -764,10 +764,17 @@
         btn.innerText = "⏳ Loading...";
 
         try {
+            // Gather valid departments from dropdown options dynamically
+            const deptSelect = document.getElementById('req-dept');
+            const validDepartments = Array.from(deptSelect.options)
+                .map(opt => opt.value)
+                .filter(val => val && val !== "");
+
             const payload = {
                 action: "parseEmailWithAi",
                 pin: pin,
-                emailContent: bodyText
+                emailContent: bodyText,
+                validDepartments: validDepartments
             };
 
             const response = await fetch(APPS_SCRIPT_URL, {
