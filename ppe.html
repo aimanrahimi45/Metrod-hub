@@ -1353,7 +1353,14 @@
     [staffIdInput, ppeTypeSelect].forEach(element => {
         element.addEventListener('change', checkSixMonthWarning);
     });
+    staffIdInput.addEventListener('input', checkSixMonthWarning);
     staffIdInput.addEventListener('blur', checkSixMonthWarning);
+
+    // Helper to normalize staff ID (strip trailing .0 decimals, trim, and lowercase)
+    function normalizeStaffId(id) {
+        if (id === null || id === undefined) return "";
+        return String(id).trim().toLowerCase().replace(/\.0+$/, "");
+    }
 
     async function checkSixMonthWarning() {
         const staffId = staffIdInput.value.trim();
@@ -1367,27 +1374,79 @@
             return;
         }
 
-        try {
-            const response = await fetch(`${APPS_SCRIPT_URL}?action=checkLastIssue&staffId=${encodeURIComponent(staffId)}&ppeType=${encodeURIComponent(ppeType)}`);
-            const resJson = await response.json();
+        let found = false;
+        let lastDate = "";
+        let diffMonths = 0;
 
-            if (resJson.status === "SUCCESS" && resJson.found && resJson.diffMonths < 6) {
-                document.getElementById('warn-ppe').innerText = ppeType;
-                document.getElementById('warn-date').innerText = resJson.lastDate;
-                document.getElementById('warn-months').innerText = resJson.diffMonths;
-                
-                warnCard.style.display = 'block';
-                remarksText.required = true;
-                lblRemarks.innerHTML = `Condition Remarks <span style="color:var(--danger)">*</span>`;
-                remarksText.placeholder = `Worker was issued ${ppeType} recently (${resJson.diffMonths} months ago). You MUST explain the condition of the old PPE here before saving.`;
-            } else {
-                warnCard.style.display = 'none';
-                remarksText.required = false;
-                lblRemarks.innerHTML = `Condition Remarks`;
-                remarksText.placeholder = `Explain the condition of the previous PPE...`;
+        // Perform local search if local database cache is available
+        if (typeof ppeData !== 'undefined' && ppeData && ppeData.length > 0) {
+            const targetStaffId = normalizeStaffId(staffId);
+            const targetPpeType = ppeType.trim().toLowerCase();
+
+            // Loop backwards (newest records first) to find the latest matching approved record
+            for (let i = ppeData.length - 1; i >= 0; i--) {
+                const r = ppeData[i];
+                const rowStaffId = normalizeStaffId(r["Staff ID"]);
+                const rowPpeType = String(r["PPE Type"] || "").trim().toLowerCase();
+                const rowStatus = String(r["Status"] || "").trim().toLowerCase();
+
+                if (rowStaffId === targetStaffId && 
+                    rowPpeType === targetPpeType && 
+                    rowStatus.includes("approved")) {
+                    
+                    const rawDate = r["Action Date"] || r["Timestamp"];
+                    if (rawDate) {
+                        const parsed = Date.parse(rawDate);
+                        if (!isNaN(parsed)) {
+                            const lastIssueDateObj = new Date(parsed);
+                            const today = new Date();
+                            const diffTime = today - lastIssueDateObj;
+                            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                            
+                            diffMonths = parseFloat((diffDays / 30.44).toFixed(1));
+                            if (diffMonths < 0) diffMonths = 0;
+
+                            const yyyy = lastIssueDateObj.getFullYear();
+                            const mm = String(lastIssueDateObj.getMonth() + 1).padStart(2, '0');
+                            const dd = String(lastIssueDateObj.getDate()).padStart(2, '0');
+                            lastDate = `${yyyy}-${mm}-${dd}`;
+                            
+                            found = true;
+                            break;
+                        }
+                    }
+                }
             }
-        } catch (err) {
-            console.error("6-Month check failed: ", err);
+        } else {
+            // Fallback to server fetch if local database cache is not yet loaded
+            console.warn("Local database cache is empty, falling back to server-side check.");
+            try {
+                const response = await fetch(`${APPS_SCRIPT_URL}?action=checkLastIssue&staffId=${encodeURIComponent(staffId)}&ppeType=${encodeURIComponent(ppeType)}`);
+                const resJson = await response.json();
+                if (resJson.status === "SUCCESS" && resJson.found) {
+                    found = true;
+                    lastDate = resJson.lastDate;
+                    diffMonths = resJson.diffMonths;
+                }
+            } catch (err) {
+                console.error("Server-side fallback check failed: ", err);
+            }
+        }
+
+        if (found && diffMonths < 6) {
+            document.getElementById('warn-ppe').innerText = ppeType;
+            document.getElementById('warn-date').innerText = lastDate;
+            document.getElementById('warn-months').innerText = diffMonths;
+            
+            warnCard.style.display = 'block';
+            remarksText.required = true;
+            lblRemarks.innerHTML = `Condition Remarks <span style="color:var(--danger)">*</span>`;
+            remarksText.placeholder = `Worker was issued ${ppeType} recently (${diffMonths} months ago). You MUST explain the condition of the old PPE here before saving.`;
+        } else {
+            warnCard.style.display = 'none';
+            remarksText.required = false;
+            lblRemarks.innerHTML = `Condition Remarks`;
+            remarksText.placeholder = `Explain the condition of the previous PPE...`;
         }
     }
 
