@@ -1349,17 +1349,81 @@
     // --- SMART 6-MONTH LOOKUP ---
     const staffIdInput = document.getElementById('req-staff-id');
     const ppeTypeSelect = document.getElementById('req-ppe-type');
+    const reqDateInput = document.getElementById('req-date');
 
-    [staffIdInput, ppeTypeSelect].forEach(element => {
+    [staffIdInput, ppeTypeSelect, reqDateInput].forEach(element => {
         element.addEventListener('change', checkSixMonthWarning);
     });
     staffIdInput.addEventListener('input', checkSixMonthWarning);
     staffIdInput.addEventListener('blur', checkSixMonthWarning);
+    reqDateInput.addEventListener('input', checkSixMonthWarning);
 
     // Helper to normalize staff ID (strip trailing .0 decimals, trim, and lowercase)
     function normalizeStaffId(id) {
         if (id === null || id === undefined) return "";
         return String(id).trim().toLowerCase().replace(/\.0+$/, "");
+    }
+
+    // Helper to robustly parse date strings from Google Sheets or form inputs
+    function parseRobustDate(dateStr) {
+        if (!dateStr) return null;
+        if (dateStr instanceof Date) return dateStr;
+        
+        dateStr = String(dateStr).trim();
+        
+        // Try standard Date.parse first
+        let timestamp = Date.parse(dateStr);
+        if (!isNaN(timestamp)) {
+            return new Date(timestamp);
+        }
+        
+        // Handle formats like "D/M/YYYY H:M:S" or "DD/MM/YYYY H:M:S"
+        const parts = dateStr.split(' ');
+        const datePart = parts[0];
+        const timePart = parts[1] || "00:00:00";
+        
+        const dateSplit = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
+        if (dateSplit.length === 3) {
+            let day, month, year;
+            
+            if (dateSplit[0].length === 4) {
+                // YYYY-MM-DD
+                year = parseInt(dateSplit[0], 10);
+                month = parseInt(dateSplit[1], 10) - 1;
+                day = parseInt(dateSplit[2], 10);
+            } else {
+                const p1 = parseInt(dateSplit[0], 10);
+                const p2 = parseInt(dateSplit[1], 10);
+                const p3 = parseInt(dateSplit[2], 10);
+                
+                if (p2 > 12) {
+                    // MM/DD/YYYY
+                    month = p1 - 1;
+                    day = p2;
+                } else if (p1 > 12) {
+                    // DD/MM/YYYY
+                    day = p1;
+                    month = p2 - 1;
+                } else {
+                    // Default to DD/MM/YYYY (Malaysia standard)
+                    day = p1;
+                    month = p2 - 1;
+                }
+                year = p3;
+            }
+            
+            const timeSplit = timePart.split(':');
+            const hour = parseInt(timeSplit[0] || 0, 10);
+            const minute = parseInt(timeSplit[1] || 0, 10);
+            const second = parseInt(timeSplit[2] || 0, 10);
+            
+            const d = new Date(year, month, day, hour, minute, second);
+            if (!isNaN(d.getTime())) {
+                return d;
+            }
+        }
+        
+        return null;
     }
 
     async function checkSixMonthWarning() {
@@ -1377,6 +1441,10 @@
         let found = false;
         let lastDate = "";
         let diffMonths = 0;
+
+        // Parse active request date from form for duration comparison (essential for backlog logging)
+        const requestDateVal = reqDateInput.value;
+        const comparisonDate = parseRobustDate(requestDateVal) || new Date();
 
         // Perform local search if local database cache is available
         if (typeof ppeData !== 'undefined' && ppeData && ppeData.length > 0) {
@@ -1396,11 +1464,9 @@
                     
                     const rawDate = r["Action Date"] || r["Timestamp"];
                     if (rawDate) {
-                        const parsed = Date.parse(rawDate);
-                        if (!isNaN(parsed)) {
-                            const lastIssueDateObj = new Date(parsed);
-                            const today = new Date();
-                            const diffTime = today - lastIssueDateObj;
+                        const lastIssueDateObj = parseRobustDate(rawDate);
+                        if (lastIssueDateObj) {
+                            const diffTime = comparisonDate - lastIssueDateObj;
                             const diffDays = diffTime / (1000 * 60 * 60 * 24);
                             
                             diffMonths = parseFloat((diffDays / 30.44).toFixed(1));
