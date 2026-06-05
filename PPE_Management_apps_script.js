@@ -73,7 +73,7 @@ function parseEmailWithAi(emailContent, validDepartments) {
   // Construct departments dynamically with safe fallbacks
   const depts = (validDepartments && validDepartments.length > 0)
     ? validDepartments
-    : ['Production', 'Maintenance', 'QA/QC', 'Warehouse', 'Safety/HR', 'Engineering', 'Electrical', 'Security', 'Recycle', 'DIP', 'Logistic/Finance/Purchasing', 'Admin', 'Contractor', 'Others'];
+    : ['Production', 'Maintenance', 'QA/QC', 'Warehouse', 'Safety/HR', 'Engineering', 'Electrical', 'Security', 'Recycle', 'DIP', 'Logistic', 'Finance', 'Purchasing', 'Admin', 'Contractor', 'Others'];
   
   const deptsString = depts.map(function(d) { return "'" + d + "'"; }).join(', ');
   
