@@ -517,24 +517,37 @@
             </div>
 
             <!-- Logs Table Card -->
-            <div class="card" style="overflow-x: auto; padding: 0;">
-                <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
-                    <thead>
-                        <tr style="background: #1e293b; color: white;">
-                            <th style="padding: 12px 16px; text-align: left;">Request ID</th>
-                            <th style="padding: 12px 16px; text-align: left;">Date</th>
-                            <th style="padding: 12px 16px; text-align: left;">Staff Name (ID)</th>
-                            <th style="padding: 12px 16px; text-align: left;">Department</th>
-                            <th style="padding: 12px 16px; text-align: left;">PPE Issued</th>
-                            <th style="padding: 12px 16px; text-align: left;">Reason</th>
-                            <th style="padding: 12px 16px; text-align: left;">Status</th>
-                            <th style="padding: 12px 16px; text-align: center;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logs-tbody">
-                        <tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Click Refresh to load logs...</td></tr>
-                    </tbody>
-                </table>
+            <div class="card" style="padding: 0; display: flex; flex-direction: column;">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+                        <thead>
+                            <tr style="background: #1e293b; color: white;">
+                                <th style="padding: 12px 16px; text-align: left;">Request ID</th>
+                                <th style="padding: 12px 16px; text-align: left;">Date</th>
+                                <th style="padding: 12px 16px; text-align: left;">Staff Name (ID)</th>
+                                <th style="padding: 12px 16px; text-align: left;">Department</th>
+                                <th style="padding: 12px 16px; text-align: left;">PPE Issued</th>
+                                <th style="padding: 12px 16px; text-align: left;">Reason</th>
+                                <th style="padding: 12px 16px; text-align: left;">Status</th>
+                                <th style="padding: 12px 16px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-tbody">
+                            <tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">⏳ Click Refresh to load logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Controls -->
+                <div id="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-top: 1px solid var(--border); background: rgba(255,255,255,0.02); flex-wrap: wrap; gap: 10px;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        Showing <span id="pag-start">0</span>-<span id="pag-end">0</span> of <span id="pag-total">0</span> requests
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="clear-btn btn-mini" id="btn-prev-page" style="padding: 6px 12px; width: auto; font-size: 0.75rem;" onclick="prevPage()">◀ Previous</button>
+                        <span id="page-num-display" style="font-size: 0.85rem; font-weight: 600; padding: 4px 10px; background: rgba(124, 58, 237, 0.08); border-radius: 6px; color: var(--primary);">Page 1 of 1</span>
+                        <button type="button" class="submit-btn btn-mini" id="btn-next-page" style="padding: 6px 12px; width: auto; font-size: 0.75rem; background: var(--primary); color: white; border: none;" onclick="nextPage()">Next ▶</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -611,6 +624,11 @@
 
     let ppeData = [];
     let activeCharts = {};
+
+    // Pagination state
+    let currentPage = 1;
+    const rowsPerPage = 15;
+    let filteredData = [];
 
     // --- SECURITY PIN VALIDATION ---
     function getDashboardPin() {
@@ -1638,15 +1656,28 @@
     }
 
     function renderTable(data) {
+        filteredData = data || [];
+        currentPage = 1;
+        renderTablePage();
+    }
+
+    function renderTablePage() {
         const tbody = document.getElementById('logs-tbody');
         tbody.innerHTML = '';
 
-        if (data.length === 0) {
+        const totalRecords = filteredData.length;
+        if (totalRecords === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-muted);">No records match the current filters.</td></tr>';
+            updatePaginationDisplay();
             return;
         }
 
-        data.forEach(r => {
+        // Calculate page boundaries
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = Math.min(startIndex + rowsPerPage, totalRecords);
+        const pageData = filteredData.slice(startIndex, endIndex);
+
+        pageData.forEach(r => {
             const row = document.createElement('tr');
             row.style.borderBottom = '1px solid var(--border)';
             
@@ -1679,6 +1710,50 @@
             `;
             tbody.appendChild(row);
         });
+
+        updatePaginationDisplay();
+    }
+
+    function updatePaginationDisplay() {
+        const totalRecords = filteredData.length;
+        const totalPages = Math.ceil(totalRecords / rowsPerPage) || 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = totalRecords === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+        const endIndex = Math.min(currentPage * rowsPerPage, totalRecords);
+
+        document.getElementById('pag-start').innerText = startIndex;
+        document.getElementById('pag-end').innerText = endIndex;
+        document.getElementById('pag-total').innerText = totalRecords;
+        document.getElementById('page-num-display').innerText = `Page ${currentPage} of ${totalPages}`;
+
+        const prevBtn = document.getElementById('btn-prev-page');
+        const nextBtn = document.getElementById('btn-next-page');
+
+        prevBtn.disabled = (currentPage === 1);
+        nextBtn.disabled = (currentPage === totalPages);
+
+        prevBtn.style.opacity = (currentPage === 1) ? "0.5" : "1";
+        prevBtn.style.cursor = (currentPage === 1) ? "not-allowed" : "pointer";
+        nextBtn.style.opacity = (currentPage === totalPages) ? "0.5" : "1";
+        nextBtn.style.cursor = (currentPage === totalPages) ? "not-allowed" : "pointer";
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderTablePage();
+        }
+    }
+
+    function nextPage() {
+        const totalPages = Math.ceil(filteredData.length / rowsPerPage) || 1;
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderTablePage();
+        }
     }
 
     // --- CHANGE STATUS ---
