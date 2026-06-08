@@ -190,7 +190,7 @@ function doPost(e) {
       if (foundRow !== -1) {
         sheet.getRange(foundRow, 12).setValue(data.status); // Update Status (Col L)
         sheet.getRange(foundRow, 13).setValue(data.authorizedBy); // Update Authorized By (Col M)
-        sheet.getRange(foundRow, 14).setValue(new Date()); // Update Action Date (Col N)
+        sheet.getRange(foundRow, 14).setValue(Utilities.formatDate(new Date(), "GMT+8", "yyyy-MM-dd")); // Update Action Date (Col N)
         SpreadsheetApp.flush();
         return ContentService.createTextOutput(JSON.stringify({ status: "SUCCESS", message: "Request status updated" })).setMimeType(ContentService.MimeType.JSON);
       } else {
@@ -201,7 +201,7 @@ function doPost(e) {
     // ACTION B: Log New Request
     const requestId = getNextRequestId(sheet);
     const status = data.status || "Approved / Dispatched";
-    const actionDate = (status !== "Pending Approval") ? timestamp : "";
+    const actionDate = (status !== "Pending Approval") ? Utilities.formatDate(timestamp, "GMT+8", "yyyy-MM-dd") : "";
     const authorizedBy = (status !== "Pending Approval") ? (data.authorizedBy || "Safety Officer") : "";
     
     sheet.appendRow([
@@ -314,3 +314,41 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify({ status: "ERROR", message: err.message })).setMimeType(ContentService.MimeType.JSON);
   }
 }
+
+// One-off utility function to clean up historical Action Dates in the Google Sheet.
+// Converts all full timestamps in the Action Date column (Column N / index 14) to "yyyy-MM-dd" date strings.
+// To run: Select cleanActionDates in the Apps Script toolbar dropdown and click Run.
+function cleanActionDates() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = getPpeSheet(ss);
+  const rows = sheet.getDataRange().getValues();
+  
+  let cleanedCount = 0;
+  
+  for (let i = 1; i < rows.length; i++) {
+    const rawActionDate = rows[i][13]; // Column N (14th column, 0-indexed index 13)
+    if (rawActionDate) {
+      let formattedDateStr = "";
+      
+      if (rawActionDate instanceof Date) {
+        formattedDateStr = Utilities.formatDate(rawActionDate, "GMT+8", "yyyy-MM-dd");
+      } else {
+        // Try parsing string date
+        const parsed = Date.parse(rawActionDate);
+        if (!isNaN(parsed)) {
+          const tempDate = new Date(parsed);
+          formattedDateStr = Utilities.formatDate(tempDate, "GMT+8", "yyyy-MM-dd");
+        }
+      }
+      
+      // If we successfully formatted it and it is different from raw cell value
+      if (formattedDateStr && String(rawActionDate) !== formattedDateStr) {
+        sheet.getRange(i + 1, 14).setValue(formattedDateStr); // Write back to Col N (Row index is i + 1)
+        cleanedCount++;
+      }
+    }
+  }
+  
+  Logger.log("🎉 Clean-up Complete! Total records formatted to Date-Only in Column N (Action Date): " + cleanedCount);
+}
+
